@@ -1,0 +1,29 @@
+:root {
+  color-scheme: light;
+  --stage: #080b0d;
+  --stage-soft: #111519;
+  --paper: #f2efe8;
+  --paper-bright: #fbf9f3;
+  --ink: #0f172a;
+  --muted: #656a70;
+  --hairline: rgba(15, 23, 42, 0.2);
+  --cobalt: #2563eb;
+  --cobalt-deep: #1749c6;
+  --teal: #14b8a6;
+  --red: #ef4444;
+  --shadow-paper: 0 18px 42px rgba(0, 0, 0, 0.22);
+  --radius-control: 8px;
+  --radius-panel: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --space-9: 96px;
+  --font-sans: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-display: "Arial Narrow", "Roboto Condensed", "Noto Sans SC", sans-serif;
+  --font-mono: "IBM Plex Mono", Consolas, monospace;
+}

@@ -1,0 +1,165 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--stage);
+  font-family: var(--font-sans);
+  color: var(--ink);
+  text-rendering: geometricPrecision;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.route-fallback {
+  min-height: 100vh;
+  background: var(--stage);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--cobalt) 70%, white);
+  outline-offset: 3px;
+}
+
+a {
+  color: inherit;
+}
+
+.logo-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.logo-mark svg {
+  width: 36px;
+  height: 36px;
+}
+
+.logo-mark strong {
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  padding: 0 22px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+}
+
+.button--primary {
+  background: var(--cobalt);
+  color: white;
+}
+
+.button--secondary {
+  border-color: var(--hairline);
+  background: transparent;
+}
+
+.button--ghost {
+  color: var(--cobalt);
+}
+
+.button--teal {
+  background: var(--teal);
+  color: var(--stage);
+}
+
+.paper-surface {
+  position: relative;
+  background-color: var(--paper);
+  background-image: linear-gradient(rgba(242, 239, 232, 0.92), rgba(242, 239, 232, 0.92)), var(--paper-texture);
+  background-size: auto, 760px 760px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: var(--shadow-paper);
+}
+
+.paper-surface--top-right {
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+}
+
+.paper-surface--both {
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+
+.index-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.foundation-page,
+.not-found-page {
+  display: grid;
+  min-height: 100vh;
+  align-content: center;
+  gap: 30px;
+  padding: clamp(24px, 5vw, 80px);
+  background: var(--stage);
+}
+
+.foundation-page > .paper-surface,
+.not-found-page {
+  max-width: 760px;
+  padding: clamp(28px, 5vw, 64px);
+}
+
+.foundation-page h1,
+.not-found-page h1 {
+  margin: 8px 0 18px;
+  font-family: var(--font-display);
+  font-size: clamp(44px, 7vw, 84px);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.not-found-page {
+  color: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
