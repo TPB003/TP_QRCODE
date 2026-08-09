@@ -1,0 +1,24 @@
+# Local design exploration and archived directions
+/archive/
+/output/
+/tmp/
+
+# Dependencies and build output
+/node_modules/
+/dist/
+/coverage/
+/.wrangler/
+
+# Local environment and test artifacts
+.dev.vars
+.env
+.env.*
+!.env.example
+/playwright-report/
+/test-results/
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
