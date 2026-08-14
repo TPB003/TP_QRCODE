@@ -2,7 +2,9 @@
 
 TP QR 是一个面向中文团队的动态二维码与业务表单平台。二维码地址保持不变，创建者可以在本地工作台中编辑草稿、发布不可变版本，再通过公共扫码页收集表单和图片提交。
 
-本仓库当前以“本地完整可运行”为交付目标：本地使用 Wrangler 的 D1/R2 模拟能力，不需要域名、不需要 Cloudflare 远程资源，也不会调用真实邮件服务。Cloudflare 域名和线上部署只在文末作为后续可选步骤说明。
+本仓库以“本地完整可运行、线上验收环境可复现”为交付目标：本地使用 Wrangler 的 D1/R2 模拟能力，线上验收使用 Cloudflare Workers 的免费 `workers.dev` 子域名。当前线上环境仅用于功能验收，仍使用开发验证码适配器；生产部署必须在配置真实邮件、Turnstile 和 secrets 后单独执行。
+
+当前验收环境：<https://tp-qr.tpqrcode.workers.dev>。它使用远程 D1 `tp-qr-db` 和私有 R2 `tp-qr-assets`，不是生产环境，也不应承载真实个人数据。
 
 ## 功能
 
@@ -15,7 +17,22 @@ TP QR 是一个面向中文团队的动态二维码与业务表单平台。二�
 - 批量 ZIP 导出，包含真实二维码 PNG、`mapping.csv` 和说明文件。
 - 公共扫码表单、最多 5 个图片附件、服务端字段校验和本地 R2 模拟存储。
 - 提交记录、CSV 导出、最近 30 天扫码/提交统计。
+- 巡检 MVP 支持字段名称编辑、单选项保留、服务端类型校验、真实提交详情和受权限保护的 R2 附件预览。
 - D1 迁移、虚构种子数据、Worker 集成测试和 Playwright 桌面/移动端验收。
+
+## Inspection MVP
+
+当前优先验收“设备巡检”闭环，保持现有 TP QR 纸张和工业工作台视觉：
+
+1. 登录后创建“设备巡检”业务项目。
+2. 在“内容与表单”中调整字段名称、必填状态和顺序；“巡检结果”的选项会随草稿保存并进入发布版本。
+3. 在二维码编辑页保存样式并发布不可变版本。
+4. 使用项目实体码对应的 `/s/:slug` 公共地址填写设备名称、巡检人、日期、结果、异常说明和现场图片。
+5. 在“提交记录”中查看真实字段值、附件数量和受权限保护的 R2 图片，不使用静态演示数据。
+
+线上验收记录（2026-08-15）：Cloudflare OAuth、远程 D1 迁移、远程种子数据、私有 R2 bucket 和免费 `workers.dev` 地址均已完成；Chrome 已验证登录、创建 inspection 项目、字段编辑器、草稿保存、发布不可变版本和公共扫码页渲染。线上环境当前是开发验收环境，验证码为 `123456`，不应录入真实数据。附件上传需要在 Chrome 扩展详情中开启“允许访问文件网址”；生产邮件、Turnstile 和真正的安全验收需在配置 secrets 后执行。
+
+最小本地验收账号可以使用任意邮箱，开发验证码固定为 `123456`。种子公共页为 `http://127.0.0.1:5173/s/TPQRDEMO01`。
 
 ## 业务流程
 
@@ -50,7 +67,8 @@ TP QR 是一个面向中文团队的动态二维码与业务表单平台。二�
 | 发布 | `POST /api/projects/:projectId/publish` |
 | 资源 | `POST /api/assets`、`DELETE /api/assets/:assetId` |
 | 实体 | `GET /api/projects/:projectId/entities`、`POST /api/projects/:projectId/entities/import` |
-| 提交与统计 | `GET /api/projects/:projectId/submissions`、`GET /api/projects/:projectId/submissions/export`、`GET /api/projects/:projectId/analytics?days=30` |
+| 提交与统计 | `GET /api/projects/:projectId/submissions`、`GET /api/projects/:projectId/submissions/:submissionId`、`GET /api/projects/:projectId/submissions/export`、`GET /api/projects/:projectId/analytics?days=30` |
+| 提交附件 | `GET /api/projects/:projectId/submissions/:submissionId/assets/:assetId`（需要项目创建者会话） |
 | 公共页面 | `GET /api/public/:slug`、`POST /api/public/:slug/submissions` |
 
 ## 目录结构
@@ -102,7 +120,7 @@ npm run db:migrate:local
 npm run db:seed:local
 ```
 
-种子数据使用虚构的设备、姓名和时间；脚本可以重复执行，不包含真实个人数据。
+种子数据使用虚构的设备、姓名和时间；脚本可以重复执行。每次执行会重置本地 D1 中的演示用户、项目、提交和附件，不包含真实个人数据。
 
 ## 本地验证码与环境变量
 
@@ -115,7 +133,7 @@ npm run db:seed:local
 | `AUTH_DELIVERY_MODE` | 验证码发送适配器 | `dev` |
 | `AUTH_TEST_CODE` | 本地固定验证码 | `123456` |
 | `AUTH_ALLOWED_EMAILS` | 邮箱白名单，逗号分隔 | `*` |
-| `TURNSTILE_SITE_KEY` | 生产公共表单站点 key | 本地留空 |
+| `VITE_TURNSTILE_SITE_KEY` | 生产公共表单站点 key（Vite 构建时注入） | 本地留空 |
 | `TURNSTILE_SECRET_KEY` | 生产 Worker secret | 本地留空 |
 | `RESEND_API_KEY`、`RESEND_FROM_EMAIL` | 后续真实邮件适配器 | 本地留空 |
 | `SESSION_COOKIE_SECRET` | 后续扩展的会话密钥 | 本地留空 |
@@ -145,7 +163,7 @@ npm run db:seed:local
 npm run check:local
 ```
 
-`check:local` 固定执行 `lint && typecheck && test && build && test:browser`。浏览器验收覆盖登录、创建巡检项目、发布、动态公共 slug、必填表单、图片上传、提交成功、移动视口、无效 slug 和控制台错误检查。若本机 Chrome 路径不同，请先设置：
+`check:local` 固定执行 `lint && typecheck && test && build && test:browser`。如果已经手动运行了 `npm run dev`，建议先停止它，再执行门禁；Playwright 会在浏览器阶段自动启动服务，避免 Vite 构建替换 `dist` 时触发 Wrangler 资源监听冲突。浏览器验收覆盖登录、创建巡检项目、发布、动态公共 slug、必填表单、图片上传、提交成功、提交详情、移动视口、无效 slug 和控制台错误检查。若本机 Chrome 路径不同，请先设置：
 
 ```powershell
 $env:PLAYWRIGHT_EXECUTABLE_PATH = "C:\path\to\chrome.exe"
@@ -167,32 +185,49 @@ npm run test:browser
 
 ## 当前限制
 
-- 本阶段没有注册域名、没有创建远程 D1/R2、没有线上 Worker 部署。
-- 本地 R2 只通过 Worker 访问；没有公开 bucket URL。
-- 生产 Turnstile、真实邮件、日志告警和自定义域名需要在后续部署阶段配置。
+- 当前没有购买自定义顶级域名；线上验收使用 Cloudflare 免费 `workers.dev` 子域名。
+- 远程 D1/R2 已创建并用于验收，但 R2 仍只通过 Worker 访问，没有公开 bucket URL。
+- 线上验收环境的 `AUTH_DELIVERY_MODE=dev` 只用于测试，验证码为 `123456`；生产环境禁止沿用。
+- 生产 Turnstile、真实邮件、日志告警和自定义域名仍需在生产部署阶段配置。
 - 团队、计费、通知、插件和超级管理员不在本阶段范围内。
 
-## Cloudflare 后续部署（可选，不是本阶段门槛）
+## Cloudflare 部署与免费地址
 
 Cloudflare 登录和域名注册是两件事。登录 Cloudflare 后，如果还没有域名，可以选择：
 
-1. 在 Cloudflare Dashboard 的 **Domain Registration / Registrar** 中搜索可注册的顶级域名并购买（是否可用、价格和地区支持以页面实时结果为准）；或者在任意域名注册商购买域名。
-2. 如果域名是在其他注册商购买的，在 Cloudflare Dashboard 选择 **Websites → Add a domain**，输入根域名并选择计划。Cloudflare 会给出两个 nameserver。
-3. 回到原注册商的域名管理页面，把 nameserver 替换为 Cloudflare 提供的 nameserver，等待状态变为 **Active**。这一步只接管 DNS，不会自动创建本项目的 D1/R2。
+1. 不购买域名时，直接使用 Cloudflare 为账号提供的免费 `workers.dev` 子域名。本项目当前地址是 `https://tp-qr.tpqrcode.workers.dev`；它适合个人项目和验收，不适合承诺稳定性的商业生产业务。
+2. 如果需要自己的顶级域名，可在 Cloudflare Registrar 或其他注册商购买。Cloudflare Registrar 按注册局/ICANN 成本计费，并不是免费域名。
+3. 外部注册商购买的域名可通过 **Websites → Add a domain** 接入 Cloudflare，再把注册商处的 nameserver 替换为 Cloudflare 提供的 nameserver，等待状态变为 **Active**。
 4. 域名激活后再为 Worker 配置自定义域名/路由，并把生产 `APP_ORIGIN`、Turnstile、邮件服务和 secrets 配好。
 
-真正准备部署时，先确认 Wrangler 登录状态，再创建资源；以下命令只作为后续参考，本阶段不要执行：
+线上验收资源已经初始化时，可使用以下命令复现（不要重复创建同名资源）：
 
 ```powershell
 npx wrangler whoami
-npx wrangler d1 create tp-qr-db
-npx wrangler r2 bucket create tp-qr-assets
-npx wrangler d1 migrations apply tp-qr-db --remote
+npm run db:migrate:remote
 npm run build
 npx wrangler deploy
 ```
 
-创建 D1 后，将命令返回的真实 `database_id` 写入 `wrangler.jsonc`；当前文件中的全零 ID 只是本地占位值，不能当作已创建资源。R2 bucket 必须保持私有，资源上传、删除和公共提交附件都通过 Worker 访问。生产部署前还应启用 Turnstile、真实验证码发送、HTTPS cookie、安全响应头、日志和备份策略。
+本仓库的 `wrangler.jsonc` 已写入远程 D1 的真实 ID；新账号需要先执行 `npx wrangler d1 create tp-qr-db` 和 `npx wrangler r2 bucket create tp-qr-assets`，再把返回的 ID 写入配置。R2 bucket 必须保持私有，资源上传、删除和公共提交附件都通过 Worker 访问。
+
+生产部署顺序：
+
+```powershell
+# 1. 配置生产 secrets（值不要写入 wrangler.jsonc）
+npx wrangler secret put RESEND_API_KEY --env production
+npx wrangler secret put RESEND_FROM_EMAIL --env production
+npx wrangler secret put TURNSTILE_SECRET_KEY --env production
+
+# 2. 在构建环境设置 Turnstile site key，并生成前端资源
+$env:VITE_TURNSTILE_SITE_KEY = "<production-site-key>"
+npm run build
+
+# 3. 部署生产环境；缺少上面任一 secret 时不要执行
+npx wrangler deploy --env production
+```
+
+Resend 需要一个已验证的发件域/地址；Turnstile 需要生产 site key 和 secret key。生产部署前还应启用 HTTPS cookie、安全响应头、日志和备份策略。
 
 ## 开源安全检查
 
