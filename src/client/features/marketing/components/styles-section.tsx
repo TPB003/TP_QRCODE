@@ -53,7 +53,7 @@ export function StylesSection() {
               <QrSpecimen
                 background={style.inverted ? "#080b0d" : "#f2efe8"}
                 color={style.color}
-                data={`https://tpqr.example/s/style-${activeContent}-${index}`}
+                data={`/s/style-${activeContent}-${index}`}
                 dotType={style.dotType}
                 finderType={style.finderType}
                 logo={index === 2 || index === 4}

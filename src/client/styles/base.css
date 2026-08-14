@@ -23,6 +23,12 @@ body {
   background: var(--stage);
 }
 
+.login-page { display: grid; min-height: 100vh; align-content: start; padding: 34px clamp(24px,6vw,100px); background: var(--stage); color: var(--paper); }
+.login-page > a { width: max-content; text-decoration: none; }
+.login-page > section { width: min(100%,560px); margin: 12vh auto 0; padding: 46px; border: 1px solid rgba(242,239,232,.22); background: var(--paper); box-shadow: 18px 20px 0 var(--cobalt); color: var(--ink); clip-path: polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%); }
+.login-page section > span { color: var(--cobalt); font-family: var(--font-mono); font-size: 12px; }.login-page h1 { margin: 18px 0 12px; font-size: 42px; }.login-page p { color: var(--muted); }.login-page label { display: grid; gap: 8px; margin-top: 22px; font-weight: 800; }.login-page label svg { width: 18px; }.login-page input { min-height: 52px; padding: 0 14px; border: 1px solid var(--hairline); background: transparent; }.login-page section > button { display: flex; width: 100%; min-height: 56px; align-items: center; justify-content: space-between; margin-top: 24px; padding: 0 20px; border: 0; background: var(--cobalt); color: white; font-weight: 900; }.login-page small { display: block; margin-top: 16px; color: var(--muted); }
+.settings-view { display: grid; max-width: 720px; gap: 18px; margin: 48px; padding: 36px; }.settings-view h1 { margin: 0; }.settings-view label { display: grid; gap: 8px; font-weight: 800; }.settings-view input,.settings-view select { min-height: 48px; padding: 0 12px; border: 1px solid var(--hairline); background: transparent; }.settings-view button { width: max-content; min-height: 46px; padding: 0 20px; border: 0; background: var(--cobalt); color: white; font-weight: 800; cursor: pointer; }.scan-notice { position: fixed; right: 18px; bottom: 90px; left: 18px; z-index: 15; max-width: 390px; margin: 0 auto; padding: 12px; background: var(--red); color: white; text-align: center; }
+
 button,
 input,
 textarea,

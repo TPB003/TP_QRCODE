@@ -27,7 +27,7 @@ export function WorkflowSection() {
             <div className="workflow-step__paper paper-texture">
               {index === 0 ? (
                 <div className="workflow-step__fixed">
-                  <QrSpecimen data="https://tpqr.example/s/AB3xY9" size={150} />
+                  <QrSpecimen data="/s/AB3xY9" size={150} />
                   <p><strong>短链接（不变）</strong><br /><a href="#product">tpqr.co/AB3xY9</a><br /><StatusDot tone="teal" />已发布</p>
                 </div>
               ) : (

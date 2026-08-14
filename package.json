@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.18.0",
+    "npm": ">=10"
+  },
   "scripts": {
     "dev": "concurrently -k -n client,worker -c blue,green \"npm:dev:client\" \"npm:dev:worker\"",
     "dev:client": "vite --host 127.0.0.1",
@@ -13,10 +17,12 @@
     "lint": "eslint .",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:browser": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
+    "check:local": "npm run lint && npm run typecheck && npm run test && npm run build && npm run test:browser",
     "db:migrate:local": "wrangler d1 migrations apply tp-qr-db --local",
+    "db:seed:local": "wrangler d1 execute tp-qr-db --local --file=tests/fixtures/seed.sql",
     "db:migrate:remote": "wrangler d1 migrations apply tp-qr-db --remote",
     "deploy": "npm run build && wrangler deploy"
   },
@@ -43,6 +49,7 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.21.3",
     "@cloudflare/workers-types": "latest",
     "@eslint/js": "latest",
     "@playwright/test": "latest",

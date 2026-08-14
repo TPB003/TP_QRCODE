@@ -2,6 +2,15 @@ export const PROJECT_STATUSES = ["active", "paused", "archived", "deleted"] as c
 
 export const PROJECT_KINDS = ["text", "url", "image", "form", "business"] as const;
 
+export const TEMPLATE_KEYS = ["checkin", "personnel", "inspection", "collection"] as const;
+
+export const TEMPLATE_LABELS: Record<(typeof TEMPLATE_KEYS)[number], string> = {
+  checkin: "签到报名",
+  personnel: "人员管理",
+  inspection: "设备巡检",
+  collection: "信息收集",
+};
+
 export const FORM_FIELD_TYPES = [
   "shortText",
   "longText",

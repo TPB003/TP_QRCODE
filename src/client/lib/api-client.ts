@@ -45,7 +45,7 @@ async function request<T>(path: string, init: RequestInit = {}, schema?: ZodType
     headers,
     credentials: "include",
   });
-  const body: unknown = await response.json();
+  const body: unknown = response.status === 204 ? null : await response.json();
   const parsedError = apiErrorBodySchema.safeParse(body);
 
   if (parsedError.success) {

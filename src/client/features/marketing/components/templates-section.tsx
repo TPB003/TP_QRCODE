@@ -59,7 +59,7 @@ export function TemplatesSection() {
         <div className="entity-tickets">
           {entities.map((entity, index) => (
             <article key={entity.id} className="entity-ticket paper-texture">
-              <QrSpecimen data={`https://tpqr.example/s/entity-${index}`} size={128} />
+              <QrSpecimen data={`/s/entity-${index}`} size={128} />
               <div><strong>{entity.name}</strong><code>{entity.id}</code><span>{entity.type}</span></div>
             </article>
           ))}

@@ -50,7 +50,7 @@ export function DataCtaSection() {
         </div>
 
         <aside className="data-dossier">
-          <QrSpecimen data="https://tpqr.example/s/QR-7F3A" size={130} />
+          <QrSpecimen data="/s/QR-7F3A" size={130} />
           <dl>
             <div><dt>二维码</dt><dd>QR-7F3A</dd></div>
             <div><dt>来源</dt><dd>产品包装 A 批次</dd></div>

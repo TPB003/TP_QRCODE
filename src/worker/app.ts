@@ -2,8 +2,21 @@ import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 import { secureHeaders } from "hono/secure-headers";
 import type { Bindings } from "@worker/bindings";
+import { assetRoutes } from "@worker/routes/asset-routes";
+import { authRoutes } from "@worker/routes/auth-routes";
+import { projectRoutes } from "@worker/routes/project-routes";
+import { publicRoutes } from "@worker/routes/public-routes";
 
 export const app = new Hono<{ Bindings: Bindings }>();
+
+function mutableAssetResponse(response: Response): Response {
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
 const apiCors = createMiddleware<{ Bindings: Bindings }>(async (context, next) => {
   const requestOrigin = context.req.header("Origin");
   const allowedOrigin = requestOrigin === context.env.APP_ORIGIN ? requestOrigin : undefined;
@@ -32,6 +45,11 @@ const apiCors = createMiddleware<{ Bindings: Bindings }>(async (context, next) =
 app.use("*", secureHeaders());
 app.use("/api/*", apiCors);
 
+app.route("/api/auth", authRoutes);
+app.route("/api", projectRoutes);
+app.route("/api", assetRoutes);
+app.route("/api/public", publicRoutes);
+
 app.get("/api/health", (context) =>
   context.json({
     data: {
@@ -42,9 +60,23 @@ app.get("/api/health", (context) =>
   }),
 );
 
-app.notFound((context) =>
-  context.json({ error: { code: "NOT_FOUND", message: "请求的资源不存在" } }, 404),
-);
+app.notFound(async (context) => {
+  if (!context.req.path.startsWith("/api/") && context.env.ASSETS) {
+    // Assets' automatic SPA fallback can throw while Wrangler is translating
+    // a navigation request. Fetch the immutable entry explicitly for public
+    // scan routes so both local and deployed Workers return the SPA shell.
+    if (context.req.path.startsWith("/s/")) {
+      const indexRequest = new Request(new URL("/index.html", context.req.url), {
+        method: "GET",
+        headers: context.req.raw.headers,
+      });
+      return mutableAssetResponse(await context.env.ASSETS.fetch(indexRequest));
+    }
+    const assetResponse = await context.env.ASSETS.fetch(context.req.raw);
+    if (assetResponse.status !== 404) return mutableAssetResponse(assetResponse);
+  }
+  return context.json({ error: { code: "NOT_FOUND", message: "请求的资源不存在" } }, 404);
+});
 
 app.onError((error, context) => {
   console.error(error);

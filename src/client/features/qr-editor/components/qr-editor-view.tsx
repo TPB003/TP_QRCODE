@@ -1,0 +1,135 @@
+import { useEffect, useState } from "react";
+import { Check, Download, Eye, Image, Link2, Save, Send, Type } from "lucide-react";
+import QRCodeStyling from "qr-code-styling";
+import { useParams } from "react-router-dom";
+import { ProjectShell } from "@client/components/layout/project-shell";
+import { QrSpecimen } from "@client/components/ui/qr-specimen";
+import { api } from "@client/lib/api";
+import type { ProjectDraft } from "@shared/types/domain";
+import "../qr-editor.css";
+
+const dotOptions = ["square", "rounded", "dots", "classy", "extra-rounded"] as const;
+const finderOptions = ["square", "extra-rounded", "dot"] as const;
+
+export function QrEditorView() {
+  const { projectId = "" } = useParams();
+  const [contentType, setContentType] = useState<"text" | "url" | "image">("url");
+  const [content, setContent] = useState(() => `${window.location.origin}/s/inspection-demo`);
+  const [dotType, setDotType] = useState<(typeof dotOptions)[number]>("rounded");
+  const [finderType, setFinderType] = useState<(typeof finderOptions)[number]>("extra-rounded");
+  const [foreground, setForeground] = useState("#2563eb");
+  const [logo, setLogo] = useState(true);
+  const [border, setBorder] = useState(true);
+  const [notice, setNotice] = useState("草稿有修改");
+  const [revision, setRevision] = useState(0);
+  const [projectName, setProjectName] = useState("二维码项目");
+  const [storedContent, setStoredContent] = useState<ProjectDraft["content"] | null>(null);
+  const [logoAssetId, setLogoAssetId] = useState<string | null>(null);
+
+  useEffect(() => {
+    void api.project(projectId).then(({ project, entities }) => {
+      setProjectName(project.name);
+      setRevision(project.revision);
+      setStoredContent(project.content);
+      if (project.content.type === "text" || project.content.type === "url") {
+        setContentType(project.content.type);
+        setContent(project.content.value);
+      } else if (project.content.type === "form" || project.content.type === "business") {
+        setContent(`${window.location.origin}/s/${entities[0]?.slug ?? ""}`);
+      }
+      setForeground(project.visualStyle.foreground);
+      setLogo(Boolean(project.visualStyle.logoAssetId));
+      setLogoAssetId(project.visualStyle.logoAssetId);
+    }).catch(() => setNotice("项目加载失败"));
+  }, [projectId]);
+
+  function currentContent(): ProjectDraft["content"] {
+    if (storedContent?.type === "form" || storedContent?.type === "business") return storedContent;
+    if (contentType === "text") return { type: "text", value: content };
+    if (contentType === "image") return { type: "image", assetId: null };
+    return { type: "url", value: content.startsWith("http") ? content : "https://example.com" };
+  }
+
+  async function saveDraft(): Promise<ProjectDraft | null> {
+    try {
+      const updated = await api.updateProject(projectId, revision, { content: currentContent(), visualStyle: { foreground, background: "#FBF9F3", dotStyle: dotType, cornerSquareStyle: finderType, cornerDotStyle: finderType, logoAssetId: logo ? logoAssetId : null, frameText: border ? "TP QR" : "" } });
+      setRevision(updated.revision);
+      setNotice("草稿已保存");
+      return updated;
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "保存失败");
+      return null;
+    }
+  }
+
+  async function publish() {
+    try {
+      const saved = await saveDraft();
+      if (!saved) return;
+      const result = await api.publishProject(projectId, saved.revision);
+      setRevision(result.project.revision);
+      setNotice("发布成功，新版本已生效");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "发布失败");
+    }
+  }
+
+  async function download(extension: "png" | "svg") {
+    const qr = new QRCodeStyling({ type: extension === "svg" ? "svg" : "canvas", width: 1024, height: 1024, data: content || "TP QR", margin: 32, dotsOptions: { type: dotType, color: foreground }, cornersSquareOptions: { type: finderType, color: foreground }, backgroundOptions: { color: "#FBF9F3" } });
+    await qr.download({ name: `${projectName.replaceAll(/\s+/g, "-")}-qr`, extension });
+  }
+
+  return (
+    <ProjectShell>
+      <section className="qr-editor-view">
+        <div className="qr-editor-heading">
+          <span>02 / 二维码编辑</span>
+          <h1>QR VISUAL<br />WORKBENCH</h1>
+          <p>二维码视觉工作台</p>
+          <code>GRID = 21 × 21<br />ECC = Q (25%)<br />QUIET ZONE = 4</code>
+        </div>
+
+        <div className="qr-editor-tabs" role="tablist">
+          <button type="button">内容</button><button className="is-active" type="button">样式</button><button type="button">发布</button>
+        </div>
+
+        <aside className="content-control paper-workbench-card">
+          <header>01 / 内容变更</header>
+          {[{ id: "text", label: "文本", icon: Type }, { id: "url", label: "网址", icon: Link2 }, { id: "image", label: "图片", icon: Image }].map(({ id, label, icon: Icon }) => (
+            <button className={contentType === id ? "is-active" : ""} key={id} type="button" onClick={() => setContentType(id as typeof contentType)}><Icon />{label}<i /></button>
+          ))}
+          <label><span>内容预览</span><textarea value={content} onChange={(event) => { setContent(event.target.value); setNotice("草稿有修改"); }} /></label>
+        </aside>
+
+        <div className={`qr-editor-canvas ${border ? "has-border" : ""}`}>
+          <QrSpecimen data={content || "TP QR"} size={430} color={foreground} dotType={dotType} finderType={finderType} logo={logo} background="#fbf9f3" />
+          <span className="canvas-target canvas-target--left" /><span className="canvas-target canvas-target--right" />
+        </div>
+
+        <aside className="visual-control paper-workbench-card">
+          <header>02 / 视觉参数</header>
+          <fieldset><legend>码点</legend><div>{dotOptions.map((option) => <button aria-label={`码点 ${option}`} className={dotType === option ? "is-active" : ""} key={option} type="button" onClick={() => setDotType(option)}><span className={`dot-icon dot-icon--${option}`} /></button>)}</div></fieldset>
+          <fieldset><legend>定位角</legend><div>{finderOptions.map((option) => <button aria-label={`定位角 ${option}`} className={finderType === option ? "is-active" : ""} key={option} type="button" onClick={() => setFinderType(option)}><span className={`finder-icon finder-icon--${option}`} /></button>)}</div></fieldset>
+          <label className="color-control"><span>前景色</span><input type="color" value={foreground} onChange={(event) => setForeground(event.target.value)} /><code>{foreground.toUpperCase()}</code></label>
+          <label className="toggle-control"><span>中心 Logo</span><i className="mini-logo">TP</i><input type="checkbox" checked={logo} onChange={(event) => setLogo(event.target.checked)} /></label>
+          <label className="toggle-control"><span>边框与说明</span><i>◩</i><input type="checkbox" checked={border} onChange={(event) => setBorder(event.target.checked)} /></label>
+        </aside>
+
+        <aside className="publish-control paper-workbench-card">
+          <header>03 / 发布证据</header>
+          <p className="draft-state">{notice}<strong>最后修改：2026-08-10 14:22</strong></p>
+          <p className="published-state"><Check />当前已发布<strong>版本：v1.2.3</strong></p>
+          <button className="publish-button" type="button" onClick={() => void publish()}>发布更新 <Send /></button>
+          <div><button type="button" onClick={() => void saveDraft()}>保存草稿 <Save /></button><button type="button">预览 <Eye /></button></div>
+          <span>下载资源</span>
+          <div><button type="button" onClick={() => void download("png")}>PNG 1024px <Download /></button><button type="button" onClick={() => void download("svg")}>SVG <Download /></button></div>
+        </aside>
+
+        <div className="version-rail">
+          <strong>版本轨迹</strong>
+          <span className="is-draft">v1.2.2 草稿</span><i /><span>v1.2.3-draft 预览</span><i /><span>发布中</span><i /><span className="is-published">v1.2.3 当前已发布</span>
+        </div>
+      </section>
+    </ProjectShell>
+  );
+}

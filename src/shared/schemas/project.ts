@@ -4,6 +4,8 @@ import {
   PROJECT_STATUSES,
   QR_CORNER_STYLES,
   QR_DOT_STYLES,
+  PRODUCT_LIMITS,
+  TEMPLATE_KEYS,
 } from "@shared/constants/product";
 import { formSchema } from "@shared/schemas/form";
 
@@ -40,12 +42,31 @@ export const projectDraftSchema = z.object({
 });
 
 export const createProjectSchema = projectDraftSchema.pick({ name: true, kind: true }).extend({
-  templateKey: z.string().trim().min(1).optional(),
+  templateKey: z.enum(TEMPLATE_KEYS).optional(),
 });
 
 export const updateProjectSchema = projectDraftSchema
-  .pick({ name: true, content: true, visualStyle: true, revision: true })
-  .partial({ name: true, content: true, visualStyle: true });
+  .pick({ name: true, content: true, visualStyle: true, status: true, revision: true })
+  .partial({ name: true, content: true, visualStyle: true, status: true });
+
+export const projectListQuerySchema = z.object({
+  q: z.string().trim().max(80).optional(),
+  status: z.enum(PROJECT_STATUSES).optional(),
+});
+
+export const entityImportRowSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  externalId: z.string().trim().max(100).default(""),
+  fields: z.record(z.string(), z.string()).default({}),
+});
+
+export const entityImportSchema = z.object({
+  rows: z.array(entityImportRowSchema).min(1).max(PRODUCT_LIMITS.batchEntities),
+});
+
+export const publishProjectSchema = z.object({
+  revision: z.number().int().nonnegative(),
+});
 
 export const entityRecordSchema = z.object({
   id: z.string().uuid(),

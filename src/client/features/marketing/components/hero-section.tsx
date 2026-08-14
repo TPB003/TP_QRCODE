@@ -15,7 +15,7 @@ const contentTabs: Array<{ icon: typeof Type; id: ContentType; label: string }> 
 
 const defaultValues: Record<Exclude<ContentType, "image">, string> = {
   text: "TP QR 让每一次扫码都指向最新内容。",
-  url: "https://tpqr.example/s/demo",
+  url: "/s/demo",
 };
 
 export function HeroSection() {
@@ -23,7 +23,7 @@ export function HeroSection() {
   const [values, setValues] = useState(defaultValues);
   const [imageName, setImageName] = useState("设备巡检说明.jpg");
   const inputId = useId();
-  const qrData = activeType === "image" ? `https://tpqr.example/assets/${encodeURIComponent(imageName)}` : values[activeType];
+  const qrData = activeType === "image" ? `/assets/${encodeURIComponent(imageName)}` : values[activeType];
 
   return (
     <section className="hero-section" id="product">

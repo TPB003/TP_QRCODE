@@ -26,7 +26,10 @@
   ],
   "vars": {
     "ENVIRONMENT": "development",
-    "APP_ORIGIN": "http://127.0.0.1:5173"
+    "APP_ORIGIN": "http://127.0.0.1:5173",
+    "AUTH_DELIVERY_MODE": "dev",
+    "AUTH_TEST_CODE": "123456",
+    "AUTH_ALLOWED_EMAILS": "*"
   },
   "triggers": {
     "crons": ["15 3 * * *"]
