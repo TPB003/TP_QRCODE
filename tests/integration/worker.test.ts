@@ -163,6 +163,40 @@ describe("TP QR Worker API", () => {
     expect(patch.status).toBe(422);
   });
 
+  it("publishes image QR assets only after upload and serves them publicly", async () => {
+    const cookie = await login("image-qr@tpqr.local");
+    const create = await SELF.fetch("http://local/api/projects", { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ name: "图片二维码验收", kind: "image" }) });
+    expect(create.status).toBe(201);
+    const created = await json<CreateProjectResponse>(create);
+    const projectId = created.data.project.id;
+
+    const missingAssetPublish = await SELF.fetch(`http://local/api/projects/${projectId}/publish`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ revision: 0 }) });
+    expect(missingAssetPublish.status).toBe(422);
+
+    const upload = new FormData();
+    upload.set("purpose", "image");
+    upload.set("file", new File([new Uint8Array([137, 80, 78, 71])], "inspection.png", { type: "image/png" }));
+    const uploaded = await SELF.fetch("http://local/api/assets", { method: "POST", headers: { Cookie: cookie }, body: upload });
+    expect(uploaded.status).toBe(201);
+    const assetId = (await json<{ data: { id: string } }>(uploaded)).data.id;
+
+    const update = await SELF.fetch(`http://local/api/projects/${projectId}`, { method: "PATCH", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ revision: 0, content: { type: "image", assetId } }) });
+    expect(update.status).toBe(200);
+    const updated = await json<UpdateProjectResponse>(update);
+    const publish = await SELF.fetch(`http://local/api/projects/${projectId}/publish`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ revision: updated.data.revision }) });
+    expect(publish.status).toBe(200);
+
+    const publicAsset = await SELF.fetch(`http://local/api/public-assets/${assetId}`);
+    expect(publicAsset.status).toBe(200);
+    expect(publicAsset.headers.get("content-type")).toContain("image/png");
+    expect(Array.from(new Uint8Array(await publicAsset.arrayBuffer()))).toEqual([137, 80, 78, 71]);
+
+    const deleteReferenced = await SELF.fetch(`http://local/api/assets/${assetId}`, { method: "DELETE", headers: { Cookie: cookie } });
+    expect(deleteReferenced.status).toBe(409);
+    const missingPublicAsset = await SELF.fetch("http://local/api/public-assets/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+    expect(missingPublicAsset.status).toBe(404);
+  });
+
   it("covers management list, templates, asset lifecycle, analytics and logout", async () => {
     const cookie = await login("management@tpqr.local");
     const templates = await SELF.fetch("http://local/api/templates");

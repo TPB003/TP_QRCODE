@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Mail } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { LogoMark } from "@client/components/ui/logo-mark";
 import { api } from "@client/lib/api";
 
@@ -11,6 +11,20 @@ export function Component() {
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    let active = true;
+    void api.me().then(() => {
+      if (!active) return;
+      const requestedNext = new URLSearchParams(location.search).get("next");
+      const next = requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//") && !requestedNext.startsWith("/login")
+        ? requestedNext
+        : "/app";
+      void navigate(next, { replace: true });
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [location.search, navigate]);
 
   async function handleSubmit() {
     setBusy(true);
@@ -22,7 +36,11 @@ export function Component() {
         setNotice(result.testCode ? `本地测试验证码：${result.testCode}` : "验证码已发送，请查收邮箱");
       } else {
         await api.verifyCode(email, code);
-        void navigate("/app");
+        const requestedNext = new URLSearchParams(location.search).get("next");
+        const next = requestedNext && requestedNext.startsWith("/") && !requestedNext.startsWith("//") && !requestedNext.startsWith("/login")
+          ? requestedNext
+          : "/app";
+        void navigate(next, { replace: true });
       }
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "请求失败，请稍后重试");

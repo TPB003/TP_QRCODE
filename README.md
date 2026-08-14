@@ -9,7 +9,7 @@ TP QR 是一个面向中文团队的动态二维码与业务表单平台。二�
 ## 功能
 
 - 邮箱验证码登录、会话 cookie、登出和登录保护。
-- 文本、网址、图片二维码编辑；浏览器端生成 PNG/SVG。
+- 文本、网址、图片二维码编辑；图片内容支持上传、预览和发布后公开读取；浏览器端生成 PNG/SVG。
 - 四类业务模板：签到报名、人员管理、设备巡检、信息收集。
 - 草稿保存、revision 冲突检测、发布不可变版本；公共页只读取已发布版本。
 - 项目、实体码和项目设置管理；每个项目创建时自动生成一个默认实体码。
@@ -65,7 +65,7 @@ TP QR 是一个面向中文团队的动态二维码与业务表单平台。二�
 | 模板 | `GET /api/templates` |
 | 项目 | `GET/POST /api/projects`、`GET/PATCH/DELETE /api/projects/:projectId` |
 | 发布 | `POST /api/projects/:projectId/publish` |
-| 资源 | `POST /api/assets`、`DELETE /api/assets/:assetId` |
+| 资源 | `POST /api/assets`、`GET /api/assets/:assetId`、`GET /api/public-assets/:assetId`、`DELETE /api/assets/:assetId` |
 | 实体 | `GET /api/projects/:projectId/entities`、`POST /api/projects/:projectId/entities/import` |
 | 提交与统计 | `GET /api/projects/:projectId/submissions`、`GET /api/projects/:projectId/submissions/:submissionId`、`GET /api/projects/:projectId/submissions/export`、`GET /api/projects/:projectId/analytics?days=30` |
 | 提交附件 | `GET /api/projects/:projectId/submissions/:submissionId/assets/:assetId`（需要项目创建者会话） |
@@ -181,6 +181,7 @@ npm run test:browser
 - 公共提交最多 5 个图片附件。
 - 删除数据保留 30 天后由 Worker 定时任务清理。
 - 公共页面只读取已发布版本；更新项目必须携带当前 `revision`，冲突返回 `REVISION_CONFLICT`。
+- 图片内容二维码只有在上传图片并发布后才会生成可用的公开图片地址；未发布或仍被项目引用的图片资源不能删除。
 - 当前本地验证码不会发送真实邮件，生产 Resend/其他邮件服务仍需接入实现。
 
 ## 当前限制

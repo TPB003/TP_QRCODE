@@ -156,6 +156,7 @@ projectRoutes.post("/projects/:projectId/publish", async (context) => {
   if (!row) return apiError(context, 404, "NOT_FOUND", "项目不存在");
   if (row.revision !== parsedBody.data.revision) return apiError(context, 409, "REVISION_CONFLICT", "项目已被其他修改更新");
   const project = rowToProject(row);
+  if (project.content.type === "image" && !project.content.assetId) return apiError(context, 422, "IMAGE_ASSET_REQUIRED", "发布图片二维码前请先上传图片");
   const previous = await context.env.DB.prepare("SELECT MAX(version) AS version FROM project_versions WHERE project_id = ?").bind(row.id).first<{ version: number | null }>();
   const version = (previous?.version ?? 0) + 1;
   const versionId = crypto.randomUUID();

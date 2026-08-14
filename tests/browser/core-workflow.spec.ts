@@ -7,12 +7,29 @@ interface BrowserProjectResponse {
   data: { entities: Array<{ slug: string }> };
 }
 
+interface BrowserImageProjectResponse {
+  data: { project: { content: { type: string; assetId: string | null } } };
+}
+
 test.describe("TP QR 本地核心流程", () => {
+  test("未登录会跳转到登录，已登录访问登录页会回到工作台", async ({ page }, testInfo) => {
+    const email = `guard-${testInfo.project.name}@tpqr.local`;
+    await page.goto("/app");
+    await expect(page).toHaveURL(/\/login\?next=/);
+    await page.getByLabel("邮箱地址").fill(email);
+    await page.getByRole("button", { name: /发送验证码/ }).click();
+    await page.getByLabel("验证码").fill("123456");
+    await page.getByRole("button", { name: /验证并登录/ }).click();
+    await expect(page).toHaveURL(/\/app$/);
+    await page.goto("/login");
+    await expect(page).toHaveURL(/\/app$/);
+  });
+
   test("登录、创建、发布并提交公共表单", async ({ page }, testInfo) => {
     const email = `browser-${testInfo.project.name}@tpqr.local`;
     const consoleErrors: string[] = [];
-    page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(`${message.text()} @ ${message.location().url}`); });
-    page.on("response", (response) => { if (response.status() >= 400) consoleErrors.push(`HTTP ${response.status()} ${response.url()}`); });
+    page.on("console", (message) => { if (message.type() === "error" && !message.location().url.endsWith("/api/auth/me")) consoleErrors.push(`${message.text()} @ ${message.location().url}`); });
+    page.on("response", (response) => { if (response.status() >= 400 && !(response.status() === 401 && response.url().endsWith("/api/auth/me"))) consoleErrors.push(`HTTP ${response.status()} ${response.url()}`); });
     page.on("requestfailed", (request) => { consoleErrors.push(`FAILED ${request.url()} ${request.failure()?.errorText ?? "unknown"}`); });
     await page.goto("/login");
     await page.getByLabel("邮箱地址").fill(email);
@@ -113,5 +130,34 @@ test.describe("TP QR 本地核心流程", () => {
     expect(zip.file("version.json")).toBeTruthy();
     expect(zip.file("README.txt")).toBeTruthy();
     expect(Object.keys(zip.files).filter((name) => name.endsWith(".png"))).toHaveLength(2);
+  });
+
+  test("图片内容二维码可以上传、发布并公开读取图片", async ({ page }, testInfo) => {
+    const email = `image-${testInfo.project.name}@tpqr.local`;
+    await page.goto("/login");
+    await page.getByLabel("邮箱地址").fill(email);
+    await page.getByRole("button", { name: /发送验证码/ }).click();
+    await page.getByLabel("验证码").fill("123456");
+    await page.getByRole("button", { name: /验证并登录/ }).click();
+    await expect(page).toHaveURL(/\/app$/);
+    await page.getByRole("button", { name: /新建项目/ }).click();
+    await page.getByLabel("项目名称").fill("浏览器图片二维码");
+    await page.getByLabel("项目类型").selectOption("image");
+    await page.getByRole("button", { name: "创建项目" }).click();
+    await expect(page).toHaveURL(/\/app\/projects\/[^/]+\/qr$/);
+    const projectId = page.url().split("/projects/")[1].split("/")[0];
+    await page.locator('.qr-image-upload input[type="file"]').setInputFiles(path.join(process.cwd(), "assets", "generated", "2026-08-09", "submission-gauge.webp"));
+    await expect(page.getByText("图片已上传，请保存草稿后发布", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /保存草稿/ }).click();
+    await expect(page.getByText("草稿已保存", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /发布更新/ }).click();
+    await expect(page.getByText("发布成功，新版本已生效", { exact: true })).toBeVisible();
+
+    const projectData = await page.evaluate(async (id): Promise<BrowserImageProjectResponse> => (await fetch(`/api/projects/${id}`, { credentials: "include" })).json(), projectId);
+    expect(projectData.data.project.content.type).toBe("image");
+    expect(projectData.data.project.content.assetId).toBeTruthy();
+    const publicAsset = await page.request.get(`/api/public-assets/${projectData.data.project.content.assetId}`);
+    expect(publicAsset.status()).toBe(200);
+    expect(publicAsset.headers()["content-type"]).toContain("image/webp");
   });
 });

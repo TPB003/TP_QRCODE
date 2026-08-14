@@ -21,6 +21,7 @@ export function DashboardView() {
   const [trend, setTrend] = useState<number[]>([0, 0]);
   const [scanTotals, setScanTotals] = useState<Record<string, number>>({});
   const [creating, setCreating] = useState(false);
+  const [createNotice, setCreateNotice] = useState("");
   const [newName, setNewName] = useState("新建二维码项目");
   const [newKind, setNewKind] = useState<ProjectDraft["kind"]>("business");
   const [templateKey, setTemplateKey] = useState<(typeof TEMPLATE_KEYS)[number]>("inspection");
@@ -54,10 +55,15 @@ export function DashboardView() {
   const kindLabel = (project: ProjectDraft) => ({ text: "文本", url: "网址", image: "图片", form: "表单", business: "业务模板" })[project.kind];
 
   async function createProject() {
-    const result = await api.createProject(newName, newKind, newKind === "business" || newKind === "form" ? templateKey : undefined);
-    setProjects((current) => [result.project, ...current]);
-    setCreating(false);
-    await navigate(`/app/projects/${result.project.id}/qr`);
+    try {
+      setCreateNotice("");
+      const result = await api.createProject(newName, newKind, newKind === "business" || newKind === "form" ? templateKey : undefined);
+      setProjects((current) => [result.project, ...current]);
+      setCreating(false);
+      await navigate(`/app/projects/${result.project.id}/qr`);
+    } catch (error) {
+      setCreateNotice(error instanceof Error ? error.message : "创建项目失败，请稍后重试");
+    }
   }
 
   return (
@@ -100,7 +106,7 @@ export function DashboardView() {
           <h2>最近提交</h2>
           {projects.slice(0, 5).map((project, index) => <Link to={`/app/projects/${project.id}/submissions`} key={project.id}><span>{String(index + 1).padStart(2, "0")}</span><strong>{project.name}</strong><small>{new Date(project.updatedAt).toLocaleString("zh-CN")}</small><ArrowRight /></Link>)}
         </aside>
-        {creating ? <div className="dashboard-create paper-panel"><h2>新建项目</h2><label>项目名称<input value={newName} onChange={(event) => setNewName(event.target.value)} /></label><label>项目类型<select value={newKind} onChange={(event) => setNewKind(event.target.value as ProjectDraft["kind"])}><option value="business">业务模板</option><option value="form">空白表单</option><option value="text">文本</option><option value="url">网址</option><option value="image">图片</option></select></label>{newKind === "business" || newKind === "form" ? <label>业务模板<select value={templateKey} onChange={(event) => setTemplateKey(event.target.value as (typeof TEMPLATE_KEYS)[number])}>{TEMPLATE_KEYS.map((key) => <option value={key} key={key}>{TEMPLATE_LABELS[key]}</option>)}</select></label> : null}<div><button type="button" onClick={() => setCreating(false)}>取消</button><button type="button" onClick={() => void createProject()}>创建项目</button></div></div> : null}
+        {creating ? <div className="dashboard-create paper-panel"><h2>新建项目</h2>{createNotice ? <p role="alert">{createNotice}</p> : null}<label>项目名称<input value={newName} onChange={(event) => setNewName(event.target.value)} /></label><label>项目类型<select value={newKind} onChange={(event) => setNewKind(event.target.value as ProjectDraft["kind"])}><option value="business">业务模板</option><option value="form">空白表单</option><option value="text">文本</option><option value="url">网址</option><option value="image">图片</option></select></label>{newKind === "business" || newKind === "form" ? <label>业务模板<select value={templateKey} onChange={(event) => setTemplateKey(event.target.value as (typeof TEMPLATE_KEYS)[number])}>{TEMPLATE_KEYS.map((key) => <option value={key} key={key}>{TEMPLATE_LABELS[key]}</option>)}</select></label> : null}<div><button type="button" onClick={() => setCreating(false)}>取消</button><button type="button" onClick={() => void createProject()}>创建项目</button></div></div> : null}
       </section>
     </AppShell>
   );

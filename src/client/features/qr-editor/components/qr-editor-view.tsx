@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { Check, Download, Eye, Image, Link2, Save, Send, Type } from "lucide-react";
 import QRCodeStyling from "qr-code-styling";
 import { useParams } from "react-router-dom";
@@ -27,6 +27,9 @@ export function QrEditorView() {
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null);
   const [storedContent, setStoredContent] = useState<ProjectDraft["content"] | null>(null);
   const [logoAssetId, setLogoAssetId] = useState<string | null>(null);
+  const [imageAssetId, setImageAssetId] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [assetBusy, setAssetBusy] = useState(false);
 
   useEffect(() => {
     void api.project(projectId).then(({ project, entities }) => {
@@ -38,6 +41,10 @@ export function QrEditorView() {
       if (project.content.type === "text" || project.content.type === "url") {
         setContentType(project.content.type);
         setContent(project.content.value);
+      } else if (project.content.type === "image") {
+        setContentType("image");
+        setImageAssetId(project.content.assetId);
+        setImagePreviewUrl(project.content.assetId ? `/api/assets/${project.content.assetId}` : "");
       } else if (project.content.type === "form" || project.content.type === "business") {
         setContent(`${window.location.origin}/s/${entities[0]?.slug ?? ""}`);
       }
@@ -47,11 +54,49 @@ export function QrEditorView() {
     }).catch(() => setNotice("项目加载失败"));
   }, [projectId]);
 
+  useEffect(() => () => {
+    if (imagePreviewUrl.startsWith("blob:")) URL.revokeObjectURL(imagePreviewUrl);
+  }, [imagePreviewUrl]);
+
   function currentContent(): ProjectDraft["content"] {
     if (storedContent?.type === "form" || storedContent?.type === "business") return storedContent;
     if (contentType === "text") return { type: "text", value: content };
-    if (contentType === "image") return { type: "image", assetId: null };
+    if (contentType === "image") return { type: "image", assetId: imageAssetId };
     return { type: "url", value: content.startsWith("http") ? content : "https://example.com" };
+  }
+
+  function qrData(): string {
+    const next = currentContent();
+    if (next.type === "image") return next.assetId ? `${window.location.origin}/api/public-assets/${next.assetId}` : "TP QR";
+    return content || "TP QR";
+  }
+
+  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    setImagePreviewUrl(preview);
+    setAssetBusy(true);
+    setNotice("正在上传图片…");
+    try {
+      const asset = await api.uploadAsset(file, "image");
+      setImageAssetId(asset.id);
+      setNotice("图片已上传，请保存草稿后发布");
+    } catch (error) {
+      URL.revokeObjectURL(preview);
+      setImagePreviewUrl("");
+      setImageAssetId(null);
+      setNotice(error instanceof Error ? error.message : "图片上传失败");
+    } finally {
+      setAssetBusy(false);
+    }
+  }
+
+  function clearImage() {
+    setImageAssetId(null);
+    setImagePreviewUrl("");
+    setNotice("图片已移除，请重新上传后发布");
   }
 
   async function saveDraft(): Promise<ProjectDraft | null> {
@@ -81,7 +126,7 @@ export function QrEditorView() {
   }
 
   async function download(extension: "png" | "svg") {
-    const qr = new QRCodeStyling({ type: extension === "svg" ? "svg" : "canvas", width: 1024, height: 1024, data: content || "TP QR", margin: 32, dotsOptions: { type: dotType, color: foreground }, cornersSquareOptions: { type: finderType, color: foreground }, backgroundOptions: { color: "#FBF9F3" } });
+    const qr = new QRCodeStyling({ type: extension === "svg" ? "svg" : "canvas", width: 1024, height: 1024, data: qrData(), margin: 32, dotsOptions: { type: dotType, color: foreground }, cornersSquareOptions: { type: finderType, color: foreground }, backgroundOptions: { color: "#FBF9F3" } });
     await qr.download({ name: `${projectName.replaceAll(/\s+/g, "-")}-qr`, extension });
   }
 
@@ -104,11 +149,11 @@ export function QrEditorView() {
           {[{ id: "text", label: "文本", icon: Type }, { id: "url", label: "网址", icon: Link2 }, { id: "image", label: "图片", icon: Image }].map(({ id, label, icon: Icon }) => (
             <button className={contentType === id ? "is-active" : ""} key={id} type="button" onClick={() => setContentType(id as typeof contentType)}><Icon />{label}<i /></button>
           ))}
-          <label><span>内容预览</span><textarea value={content} onChange={(event) => { setContent(event.target.value); setNotice("草稿有修改"); }} /></label>
+          {contentType === "image" ? <div className="qr-image-upload"><span>图片附件</span>{imagePreviewUrl ? <figure><img src={imagePreviewUrl} alt="二维码图片附件预览" /><button type="button" onClick={clearImage}>移除图片</button></figure> : <p>上传一张图片后，二维码会指向发布后的公开图片地址。</p>}<label className="qr-image-upload__input"><span>{assetBusy ? "上传中…" : "选择 JPG / PNG / WebP"}</span><input type="file" accept="image/jpeg,image/png,image/webp" disabled={assetBusy} onChange={handleImageUpload} /></label></div> : <label><span>内容预览</span><textarea value={content} onChange={(event) => { setContent(event.target.value); setNotice("草稿有修改"); }} /></label>}
         </aside>
 
         <div className={`qr-editor-canvas ${border ? "has-border" : ""}`}>
-          <QrSpecimen data={content || "TP QR"} size={430} color={foreground} dotType={dotType} finderType={finderType} logo={logo} background="#fbf9f3" />
+          <QrSpecimen data={qrData()} size={430} color={foreground} dotType={dotType} finderType={finderType} logo={logo} background="#fbf9f3" />
           <span className="canvas-target canvas-target--left" /><span className="canvas-target canvas-target--right" />
         </div>
 

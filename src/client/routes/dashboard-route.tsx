@@ -1,5 +1,6 @@
 import { DashboardView } from "@client/features/dashboard";
+import { RequireAuth } from "@client/components/auth/require-auth";
 
 export function Component() {
-  return <DashboardView />;
+  return <RequireAuth><DashboardView /></RequireAuth>;
 }

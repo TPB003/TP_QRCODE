@@ -28,6 +28,32 @@ assetRoutes.post("/assets", async (context) => {
   return context.json({ data: { id, contentType: file.type, size: file.size, purpose } }, 201);
 });
 
+assetRoutes.get("/public-assets/:assetId", async (context) => {
+  const asset = await context.env.DB.prepare(
+    `SELECT a.object_key, a.content_type
+     FROM assets a
+     JOIN project_versions v
+       ON json_extract(v.snapshot_json, '$.content.type') = 'image'
+      AND json_extract(v.snapshot_json, '$.content.assetId') = a.id
+     JOIN projects p
+       ON p.id = v.project_id
+      AND p.published_version_id = v.id
+     WHERE a.id = ?
+       AND a.deleted_at IS NULL
+       AND p.deleted_at IS NULL
+       AND p.status = 'active'
+     LIMIT 1`,
+  ).bind(context.req.param("assetId")).first<{ object_key: string; content_type: string }>();
+  if (!asset) return apiError(context, 404, "NOT_FOUND", "璧勬簮涓嶅瓨鍦ㄦ垨灏氭湭鍙戝竷");
+  const object = await context.env.ASSETS_BUCKET.get(asset.object_key);
+  if (!object) return apiError(context, 404, "NOT_FOUND", "璧勬簮涓嶅瓨鍦ㄦ垨灏氭湭鍙戝竷");
+  const headers = new Headers({ "Cache-Control": "public, max-age=300, s-maxage=3600", "Content-Type": asset.content_type });
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "public, max-age=300, s-maxage=3600");
+  headers.set("ETag", object.httpEtag);
+  return new Response(object.body, { status: 200, headers });
+});
+
 assetRoutes.get("/assets/:assetId", async (context) => {
   const user = await currentUser(context);
   if (!user) return apiError(context, 401, "UNAUTHORIZED", "请先登录");
@@ -52,6 +78,23 @@ assetRoutes.delete("/assets/:assetId", async (context) => {
     .bind(assetId, user.id)
     .first<{ object_key: string }>();
   if (!asset) return apiError(context, 404, "NOT_FOUND", "资源不存在");
+  const inUse = await context.env.DB.prepare(
+    `SELECT 1
+     FROM projects p
+     LEFT JOIN project_versions v ON v.id = p.published_version_id
+     WHERE p.owner_id = ?
+       AND p.deleted_at IS NULL
+       AND (
+         json_extract(p.draft_content_json, '$.assetId') = ?
+         OR json_extract(p.draft_content_json, '$.schema.coverAssetId') = ?
+         OR json_extract(p.visual_style_json, '$.logoAssetId') = ?
+         OR json_extract(v.snapshot_json, '$.content.assetId') = ?
+         OR json_extract(v.snapshot_json, '$.content.schema.coverAssetId') = ?
+         OR json_extract(v.snapshot_json, '$.visualStyle.logoAssetId') = ?
+       )
+     LIMIT 1`,
+  ).bind(user.id, assetId, assetId, assetId, assetId, assetId, assetId).first();
+  if (inUse) return apiError(context, 409, "ASSET_IN_USE", "璧勬簮姝ｅ湪琚」鐩娇鐢ㄤ腑");
   await context.env.ASSETS_BUCKET.delete(asset.object_key);
   await context.env.DB.prepare("UPDATE assets SET deleted_at = ? WHERE id = ? AND owner_id = ?").bind(nowIso(), assetId, user.id).run();
   return context.json({ data: { deleted: true } });

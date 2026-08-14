@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type PropsWithChildren } from "react";
 import { BarChart3, ClipboardList, FileText, Layers3, QrCode, Settings } from "lucide-react";
-import { Link, NavLink, useNavigate, useParams } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LogoMark } from "@client/components/ui/logo-mark";
 import { generatedAssets } from "@client/lib/assets";
 import { api } from "@client/lib/api";
@@ -8,6 +8,7 @@ import "./shell.css";
 
 export function ProjectShell({ children }: PropsWithChildren) {
   const { projectId = "" } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -15,9 +16,9 @@ export function ProjectShell({ children }: PropsWithChildren) {
     let active = true;
     void api.me().then(() => {
       if (active) setAuthChecked(true);
-    }).catch(() => navigate("/login", { replace: true }));
+    }).catch(() => navigate(`/login?next=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`, { replace: true }));
     return () => { active = false; };
-  }, [navigate]);
+  }, [location, navigate]);
 
   if (!authChecked) return <div className="route-loading" role="status">正在检查登录状态…</div>;
 
