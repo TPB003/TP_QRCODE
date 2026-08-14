@@ -23,6 +23,8 @@ export function QrEditorView() {
   const [notice, setNotice] = useState("草稿有修改");
   const [revision, setRevision] = useState(0);
   const [projectName, setProjectName] = useState("二维码项目");
+  const [updatedAt, setUpdatedAt] = useState("");
+  const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null);
   const [storedContent, setStoredContent] = useState<ProjectDraft["content"] | null>(null);
   const [logoAssetId, setLogoAssetId] = useState<string | null>(null);
 
@@ -30,6 +32,8 @@ export function QrEditorView() {
     void api.project(projectId).then(({ project, entities }) => {
       setProjectName(project.name);
       setRevision(project.revision);
+      setUpdatedAt(project.updatedAt);
+      setPublishedVersionId(project.publishedVersionId);
       setStoredContent(project.content);
       if (project.content.type === "text" || project.content.type === "url") {
         setContentType(project.content.type);
@@ -54,6 +58,7 @@ export function QrEditorView() {
     try {
       const updated = await api.updateProject(projectId, revision, { content: currentContent(), visualStyle: { foreground, background: "#FBF9F3", dotStyle: dotType, cornerSquareStyle: finderType, cornerDotStyle: finderType, logoAssetId: logo ? logoAssetId : null, frameText: border ? "TP QR" : "" } });
       setRevision(updated.revision);
+      setUpdatedAt(updated.updatedAt);
       setNotice("草稿已保存");
       return updated;
     } catch (error) {
@@ -68,6 +73,7 @@ export function QrEditorView() {
       if (!saved) return;
       const result = await api.publishProject(projectId, saved.revision);
       setRevision(result.project.revision);
+      setPublishedVersionId(result.project.publishedVersionId);
       setNotice("发布成功，新版本已生效");
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "发布失败");
@@ -117,8 +123,8 @@ export function QrEditorView() {
 
         <aside className="publish-control paper-workbench-card">
           <header>03 / 发布证据</header>
-          <p className="draft-state">{notice}<strong>最后修改：2026-08-10 14:22</strong></p>
-          <p className="published-state"><Check />当前已发布<strong>版本：v1.2.3</strong></p>
+          <p className="draft-state">{notice}<strong>{updatedAt ? `最后修改：${new Date(updatedAt).toLocaleString("zh-CN")}` : "尚未读取项目状态"}</strong></p>
+          <p className="published-state"><Check />{publishedVersionId ? "已有发布版本" : "尚未发布"}<strong>{publishedVersionId ? `版本 ID：${publishedVersionId.slice(0, 8)}` : "请先保存并发布"}</strong></p>
           <button className="publish-button" type="button" onClick={() => void publish()}>发布更新 <Send /></button>
           <div><button type="button" onClick={() => void saveDraft()}>保存草稿 <Save /></button><button type="button">预览 <Eye /></button></div>
           <span>下载资源</span>
@@ -127,7 +133,7 @@ export function QrEditorView() {
 
         <div className="version-rail">
           <strong>版本轨迹</strong>
-          <span className="is-draft">v1.2.2 草稿</span><i /><span>v1.2.3-draft 预览</span><i /><span>发布中</span><i /><span className="is-published">v1.2.3 当前已发布</span>
+          <span className="is-draft">{notice}</span><i /><span>修订 r{revision}</span><i /><span>{publishedVersionId ? "公共页已更新" : "等待发布"}</span><i /><span className={publishedVersionId ? "is-published" : ""}>{publishedVersionId ? `版本 ${publishedVersionId.slice(0, 8)}` : "尚未发布"}</span>
         </div>
       </section>
     </ProjectShell>

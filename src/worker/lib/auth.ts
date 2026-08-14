@@ -44,6 +44,20 @@ export async function issueCode(env: Bindings, email: string): Promise<{ code: s
   const code = env.AUTH_TEST_CODE?.match(/^\d{6}$/)?.[0] ?? String(Math.floor(100000 + Math.random() * 900000));
   const createdAt = nowIso();
   const expiresAt = new Date(Date.now() + CODE_TTL_SECONDS * 1000).toISOString();
+  if (!isDevAuth(env)) {
+    if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) throw new Error("AUTH_DELIVERY_NOT_CONFIGURED");
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: env.RESEND_FROM_EMAIL,
+        to: [normalizedEmail],
+        subject: "TP QR 登录验证码",
+        text: `您的 TP QR 登录验证码是 ${code}，10 分钟内有效。如非本人操作，请忽略此邮件。`,
+      }),
+    });
+    if (!response.ok) throw new Error("AUTH_DELIVERY_FAILED");
+  }
   await env.DB.prepare("UPDATE auth_codes SET used_at = ? WHERE email = ? AND used_at IS NULL")
     .bind(createdAt, normalizedEmail)
     .run();
@@ -126,5 +140,5 @@ export function attachSessionCookie(context: AppContext, sessionId: string): voi
 }
 
 export function isDevAuth(env: Bindings): boolean {
-  return env.AUTH_DELIVERY_MODE !== "resend" || env.ENVIRONMENT === "test" || env.ENVIRONMENT === "development";
+  return env.AUTH_DELIVERY_MODE === "dev" || env.ENVIRONMENT === "test";
 }

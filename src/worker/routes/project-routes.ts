@@ -11,6 +11,8 @@ import { templateList, templateSchema } from "@worker/lib/templates";
 export const projectRoutes = new Hono<{ Bindings: Bindings }>();
 
 const projectIdParamSchema = z.object({ projectId: z.string().uuid() });
+const submissionParamSchema = z.object({ projectId: z.string().uuid(), submissionId: z.string().uuid() });
+const submissionAssetParamSchema = submissionParamSchema.extend({ assetId: z.string().uuid() });
 
 function contentFor(kind: ProjectDraft["kind"], templateKey?: "checkin" | "personnel" | "inspection" | "collection") {
   if (kind === "text") return { type: "text" as const, value: "" };
@@ -26,6 +28,23 @@ async function getProject(context: Parameters<typeof currentUser>[0], projectId:
   const statement = context.env.DB.prepare(`SELECT id, owner_id, name, kind, status, revision, draft_content_json, visual_style_json, published_version_id, created_at, updated_at, deleted_at FROM projects WHERE id = ? AND deleted_at IS NULL${ownerClause} LIMIT 1`);
   const row = ownerId ? await statement.bind(projectId, ownerId).first<ProjectRow>() : await statement.bind(projectId).first<ProjectRow>();
   return row;
+}
+
+function referencedAssetIds(project: ProjectDraft): string[] {
+  const ids = [project.visualStyle.logoAssetId];
+  if (project.content.type === "image") ids.push(project.content.assetId);
+  if (project.content.type === "form" || project.content.type === "business") ids.push(project.content.schema.coverAssetId);
+  return ids.filter((id): id is string => Boolean(id));
+}
+
+async function hasOnlyOwnedAssets(context: Parameters<typeof currentUser>[0], project: ProjectDraft, ownerId: string): Promise<boolean> {
+  const ids = referencedAssetIds(project);
+  if (ids.length === 0) return true;
+  const placeholders = ids.map(() => "?").join(",");
+  const row = await context.env.DB.prepare(`SELECT COUNT(*) AS count FROM assets WHERE owner_id = ? AND deleted_at IS NULL AND id IN (${placeholders})`)
+    .bind(ownerId, ...ids)
+    .first<{ count: number }>();
+  return Number(row?.count ?? 0) === ids.length;
 }
 
 async function createEntity(db: D1Database, projectId: string, name: string, externalId = "", fields: Record<string, string> = {}) {
@@ -117,6 +136,7 @@ projectRoutes.patch("/projects/:projectId", async (context) => {
     updatedAt: nowIso(),
   } satisfies ProjectDraft;
   const validated = (await import("@shared/schemas/project")).projectDraftSchema.parse(next);
+  if (!(await hasOnlyOwnedAssets(context, validated, user.id))) return apiError(context, 422, "VALIDATION_ERROR", "项目引用了无权限访问的资源");
   await context.env.DB.prepare("UPDATE projects SET name = ?, status = ?, revision = ?, draft_content_json = ?, visual_style_json = ?, updated_at = ? WHERE id = ? AND owner_id = ? AND revision = ?")
     .bind(validated.name, validated.status, validated.revision, JSON.stringify(validated.content), JSON.stringify(validated.visualStyle), validated.updatedAt, row.id, user.id, row.revision)
     .run();
@@ -195,6 +215,20 @@ interface SubmissionRow {
   attachment_count: number;
 }
 
+interface SubmissionDetailRow {
+  id: string;
+  code_id: string;
+  version_id: string;
+  values_json: string;
+  created_at: string;
+}
+
+interface SubmissionAssetRow {
+  id: string;
+  content_type: string;
+  size: number;
+}
+
 projectRoutes.get("/projects/:projectId/submissions", async (context) => {
   const user = await currentUser(context);
   if (!user) return apiError(context, 401, "UNAUTHORIZED", "请先登录");
@@ -204,6 +238,46 @@ projectRoutes.get("/projects/:projectId/submissions", async (context) => {
     .bind(params.data.projectId)
     .all<SubmissionRow>();
   return context.json({ data: { items: rows.results.map((row) => ({ id: row.id, codeId: row.code_id, versionId: row.version_id, values: jsonParse(row.values_json, {}), attachments: row.attachment_count, createdAt: row.created_at })), nextCursor: null } });
+});
+
+projectRoutes.get("/projects/:projectId/submissions/:submissionId", async (context) => {
+  const user = await currentUser(context);
+  if (!user) return apiError(context, 401, "UNAUTHORIZED", "请先登录");
+  const params = submissionParamSchema.safeParse(context.req.param());
+  if (!params.success || !(await getProject(context, params.data.projectId, user.id))) return apiError(context, 404, "NOT_FOUND", "提交记录不存在");
+  const submission = await context.env.DB.prepare("SELECT id, code_id, version_id, values_json, created_at FROM submissions WHERE id = ? AND project_id = ? LIMIT 1")
+    .bind(params.data.submissionId, params.data.projectId)
+    .first<SubmissionDetailRow>();
+  if (!submission) return apiError(context, 404, "NOT_FOUND", "提交记录不存在");
+  const assets = await context.env.DB.prepare("SELECT a.id, a.content_type, a.size FROM assets a JOIN submission_assets sa ON sa.asset_id = a.id WHERE sa.submission_id = ? AND a.deleted_at IS NULL ORDER BY a.created_at ASC")
+    .bind(submission.id)
+    .all<SubmissionAssetRow>();
+  return context.json({ data: {
+    id: submission.id,
+    codeId: submission.code_id,
+    versionId: submission.version_id,
+    values: jsonParse<Record<string, unknown>>(submission.values_json, {}),
+    createdAt: submission.created_at,
+    attachments: assets.results.map((asset) => ({ id: asset.id, contentType: asset.content_type, size: asset.size, url: `/api/projects/${params.data.projectId}/submissions/${submission.id}/assets/${asset.id}` })),
+  } });
+});
+
+projectRoutes.get("/projects/:projectId/submissions/:submissionId/assets/:assetId", async (context) => {
+  const user = await currentUser(context);
+  if (!user) return apiError(context, 401, "UNAUTHORIZED", "请先登录");
+  const params = submissionAssetParamSchema.safeParse(context.req.param());
+  if (!params.success || !(await getProject(context, params.data.projectId, user.id))) return apiError(context, 404, "NOT_FOUND", "附件不存在");
+  const asset = await context.env.DB.prepare("SELECT a.object_key FROM assets a JOIN submission_assets sa ON sa.asset_id = a.id JOIN submissions s ON s.id = sa.submission_id WHERE a.id = ? AND s.id = ? AND s.project_id = ? AND a.deleted_at IS NULL LIMIT 1")
+    .bind(params.data.assetId, params.data.submissionId, params.data.projectId)
+    .first<{ object_key: string }>();
+  if (!asset) return apiError(context, 404, "NOT_FOUND", "附件不存在");
+  const object = await context.env.ASSETS_BUCKET.get(asset.object_key);
+  if (!object) return apiError(context, 404, "NOT_FOUND", "附件不存在");
+  const headers = new Headers();
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "private, max-age=300");
+  headers.set("ETag", object.httpEtag);
+  return new Response(object.body, { status: 200, headers });
 });
 
 projectRoutes.get("/projects/:projectId/submissions/export", async (context) => {
@@ -224,7 +298,9 @@ projectRoutes.get("/projects/:projectId/analytics", async (context) => {
   const user = await currentUser(context);
   if (!user) return apiError(context, 401, "UNAUTHORIZED", "请先登录");
   const params = projectIdParamSchema.safeParse(context.req.param());
-  const days = Math.min(30, Math.max(1, Number(context.req.query("days") ?? 30)));
+  const rawDays = Number(context.req.query("days") ?? 30);
+  if (!Number.isInteger(rawDays) || rawDays < 1) return apiError(context, 422, "VALIDATION_ERROR", "统计天数必须是正整数");
+  const days = Math.min(30, rawDays);
   if (!params.success || !(await getProject(context, params.data.projectId, user.id))) return apiError(context, 404, "NOT_FOUND", "项目不存在");
   const rows = await context.env.DB.prepare("SELECT date, scans, submissions FROM analytics_daily WHERE project_id = ? ORDER BY date DESC LIMIT ?")
     .bind(params.data.projectId, days)

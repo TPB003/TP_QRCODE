@@ -22,6 +22,7 @@ export function BatchCodesView() {
   const [entities, setEntities] = useState<EntityRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [fileName, setFileName] = useState("未选择 CSV 文件");
+  const [fileSize, setFileSize] = useState(0);
   const [notice, setNotice] = useState("请先上传 CSV");
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null);
   const [parsedRows, setParsedRows] = useState<Array<Record<string, string>>>([]);
@@ -45,6 +46,7 @@ export function BatchCodesView() {
   function handleCsv(file: File | undefined) {
     if (!file) return;
     setFileName(file.name);
+    setFileSize(file.size);
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: true,
@@ -74,8 +76,12 @@ export function BatchCodesView() {
   }
 
   async function downloadZip() {
+    if (!publishedVersionId) {
+      setNotice("请先发布项目，再生成公共二维码");
+      return;
+    }
     const zip = new JSZip();
-    const csv = ["file_name,entity_id,entity_name,short_url", ...selectedRows.map((entity) => `${entity.slug}.png,${entity.id},${entity.name},${window.location.origin}/s/${entity.slug}`)].join("\n");
+    const csv = ["file_name,entity_id,entity_name,short_url", ...selectedRows.map((entity) => `${entity.id}.png,${entity.id},${entity.name},${window.location.origin}/s/${entity.slug}`)].join("\n");
     zip.file("mapping.csv", csv);
     for (const entity of selectedRows) {
       const qr = new QRCodeStyling({ type: "canvas", width: 1024, height: 1024, data: `${window.location.origin}/s/${entity.slug}`, margin: 32, dotsOptions: { type: "rounded", color: "#2563EB" }, backgroundOptions: { color: "#FBF9F3" } });
@@ -99,9 +105,9 @@ export function BatchCodesView() {
       <section className="batch-codes-view">
         <header className="batch-heading"><h1>BATCH<br /><span>/200</span></h1><p>单次最多导入 200 个实体</p></header>
         <div className="batch-steps">
-          <article className="batch-step-sheet"><header><b>1</b>上传 CSV</header><FileSpreadsheet /><strong>{fileName}</strong><small>128 KB</small><label><Upload />选择文件<input type="file" accept=".csv,text/csv" onChange={(event) => handleCsv(event.target.files?.[0])} /></label></article>
+          <article className="batch-step-sheet"><header><b>1</b>上传 CSV</header><FileSpreadsheet /><strong>{fileName}</strong><small>{fileSize > 0 ? `${Math.max(1, Math.round(fileSize / 1024))} KB` : "支持 CSV 文件"}</small><label><Upload />选择文件<input type="file" accept=".csv,text/csv" onChange={(event) => handleCsv(event.target.files?.[0])} /></label></article>
           <article className="batch-step-sheet"><header><b>2</b>字段映射</header><div className="mapping-list"><label>实体名称<select value={nameColumn} onChange={(event) => setNameColumn(event.target.value)} disabled={csvHeaders.length === 0}><option value="">请选择字段</option>{csvHeaders.map((header) => <option value={header} key={header}>{header}</option>)}</select></label><label>实体编号<select value={externalIdColumn} onChange={(event) => setExternalIdColumn(event.target.value)} disabled={csvHeaders.length === 0}><option value="">不导入编号</option>{csvHeaders.map((header) => <option value={header} key={header}>{header}</option>)}</select></label></div><button type="button" onClick={confirmMapping}>确认映射并导入</button></article>
-          <article className="batch-step-sheet"><header><b>3</b>预览确认</header><div className="batch-preview-ticket">{previewEntity ? <><QrSpecimen data={`${window.location.origin}/s/${previewEntity.slug}`} size={118} /><p><strong>{previewEntity.name}</strong><code>{previewEntity.slug}</code></p></> : <p>导入实体后预览二维码</p>}</div><span className="batch-seal"><Check />{notice}</span><button type="button" onClick={() => setNotice(selectedRows.length > 0 ? "批量二维码已生成" : "请先选择实体")}>批量生成</button></article>
+          <article className="batch-step-sheet"><header><b>3</b>预览确认</header><div className="batch-preview-ticket">{previewEntity ? <><QrSpecimen data={`${window.location.origin}/s/${previewEntity.slug}`} size={118} /><p><strong>{previewEntity.name}</strong><code>{previewEntity.slug}</code></p></> : <p>导入实体后预览二维码</p>}</div><span className="batch-seal"><Check />{notice}</span><button type="button" onClick={() => void downloadZip()}>批量生成并下载 ZIP</button></article>
         </div>
 
         <div className="batch-table-sheet">

@@ -24,6 +24,9 @@ authRoutes.post("/request-code", async (context) => {
     if (error instanceof Error && error.message === "AUTH_EMAIL_NOT_ALLOWED") {
       return apiError(context, 403, "FORBIDDEN", "该邮箱不在内部验收名单中");
     }
+    if (error instanceof Error && ["AUTH_DELIVERY_NOT_CONFIGURED", "AUTH_DELIVERY_FAILED"].includes(error.message)) {
+      return apiError(context, 503, "AUTH_DELIVERY_UNAVAILABLE", "验证码服务暂不可用，请联系管理员");
+    }
     throw error;
   }
 });

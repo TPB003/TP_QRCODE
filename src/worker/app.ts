@@ -17,6 +17,13 @@ function mutableAssetResponse(response: Response): Response {
   });
 }
 
+function localSpaFallback(): Response {
+  return new Response("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><title>TP QR</title></head><body><div id=\"root\"></div></body></html>", {
+    status: 200,
+    headers: { "Content-Type": "text/html; charset=UTF-8" },
+  });
+}
+
 const apiCors = createMiddleware<{ Bindings: Bindings }>(async (context, next) => {
   const requestOrigin = context.req.header("Origin");
   const allowedOrigin = requestOrigin === context.env.APP_ORIGIN ? requestOrigin : undefined;
@@ -70,7 +77,10 @@ app.notFound(async (context) => {
         method: "GET",
         headers: context.req.raw.headers,
       });
-      return mutableAssetResponse(await context.env.ASSETS.fetch(indexRequest));
+      const indexResponse = await context.env.ASSETS.fetch(indexRequest);
+      if (indexResponse.ok) return mutableAssetResponse(indexResponse);
+      if (context.env.ENVIRONMENT !== "production") return localSpaFallback();
+      return mutableAssetResponse(indexResponse);
     }
     const assetResponse = await context.env.ASSETS.fetch(context.req.raw);
     if (assetResponse.status !== 404) return mutableAssetResponse(assetResponse);

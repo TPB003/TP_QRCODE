@@ -28,6 +28,22 @@ assetRoutes.post("/assets", async (context) => {
   return context.json({ data: { id, contentType: file.type, size: file.size, purpose } }, 201);
 });
 
+assetRoutes.get("/assets/:assetId", async (context) => {
+  const user = await currentUser(context);
+  if (!user) return apiError(context, 401, "UNAUTHORIZED", "请先登录");
+  const asset = await context.env.DB.prepare("SELECT object_key, content_type FROM assets WHERE id = ? AND owner_id = ? AND deleted_at IS NULL LIMIT 1")
+    .bind(context.req.param("assetId"), user.id)
+    .first<{ object_key: string; content_type: string }>();
+  if (!asset) return apiError(context, 404, "NOT_FOUND", "资源不存在");
+  const object = await context.env.ASSETS_BUCKET.get(asset.object_key);
+  if (!object) return apiError(context, 404, "NOT_FOUND", "资源不存在");
+  const headers = new Headers({ "Cache-Control": "private, max-age=300", "Content-Type": asset.content_type });
+  object.writeHttpMetadata(headers);
+  headers.set("Cache-Control", "private, max-age=300");
+  headers.set("ETag", object.httpEtag);
+  return new Response(object.body, { status: 200, headers });
+});
+
 assetRoutes.delete("/assets/:assetId", async (context) => {
   const user = await currentUser(context);
   if (!user) return apiError(context, 401, "UNAUTHORIZED", "请先登录");

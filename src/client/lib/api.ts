@@ -26,6 +26,15 @@ export interface AnalyticsResponse {
   days: number;
 }
 
+export interface SubmissionDetailResponse {
+  id: string;
+  codeId: string;
+  versionId: string;
+  values: Record<string, unknown>;
+  createdAt: string;
+  attachments: Array<{ id: string; contentType: string; size: number; url: string }>;
+}
+
 export interface PublicResponse {
   project: Pick<ProjectDraft, "id" | "name" | "kind" | "content" | "visualStyle" | "revision" | "publishedVersionId" | "updatedAt">;
   version: { id: string; version: number; publishedAt: string };
@@ -46,6 +55,7 @@ export const api = {
   importEntities: (projectId: string, rows: Array<{ name: string; externalId?: string; fields?: Record<string, string> }>) => apiClient.post<{ items: ProjectEntity[]; count: number }>(`/api/projects/${projectId}/entities/import`, { rows }),
   analytics: (projectId: string) => apiClient.get<AnalyticsResponse>(`/api/projects/${projectId}/analytics?days=30`),
   submissions: (projectId: string) => apiClient.get<{ items: Array<{ id: string; codeId: string; versionId: string; values: Record<string, unknown>; attachments: number; createdAt: string }>; nextCursor: string | null }>(`/api/projects/${projectId}/submissions`),
+  submission: (projectId: string, submissionId: string) => apiClient.get<SubmissionDetailResponse>(`/api/projects/${projectId}/submissions/${submissionId}`),
   publicPage: (slug: string) => apiClient.get<PublicResponse>(`/api/public/${encodeURIComponent(slug)}`),
   submitPublic: (slug: string, values: Record<string, unknown>, files: File[] = [], turnstileToken?: string) => {
     const form = new FormData();
@@ -60,6 +70,7 @@ export const api = {
     form.set("purpose", purpose);
     return apiClient.post<{ id: string; contentType: string; size: number; purpose: string }>("/api/assets", form);
   },
+  deleteAsset: (assetId: string) => apiClient.delete<{ deleted: boolean }>(`/api/assets/${assetId}`),
 };
 
 export function projectFormSchema(project: ProjectDraft): FormSchema | null {

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { ALLOWED_IMAGE_TYPES, PRODUCT_LIMITS } from "@shared/constants/product";
 import { formSchema, submissionPayloadSchema } from "@shared/schemas/form";
 import { projectDraftSchema } from "@shared/schemas/project";
-import type { ProjectDraft } from "@shared/types/domain";
+import type { FormSchema, ProjectDraft } from "@shared/types/domain";
 import type { Bindings } from "@worker/bindings";
 import { apiError, consumeRateLimit, hashValue, jsonParse, nowIso, type AppContext } from "@worker/lib/http";
 
@@ -81,6 +81,50 @@ async function allowPublicRequest(context: AppContext, slug: string, limit: numb
   return consumeRateLimit(context.env.DB, key, limit, windowSeconds);
 }
 
+function fieldValue(values: Record<string, unknown>, field: FormSchema["fields"][number]): unknown {
+  const byId = values[field.id];
+  if (byId !== undefined && byId !== "") return byId;
+  return values[field.label];
+}
+
+function validateSubmissionValues(
+  schema: FormSchema,
+  values: Record<string, unknown>,
+  files: File[],
+): { values: Record<string, unknown>; fieldErrors: Record<string, string[]> } {
+  const normalized: Record<string, unknown> = {};
+  const fieldErrors: Record<string, string[]> = {};
+  const issue = (fieldId: string, message: string) => {
+    fieldErrors[fieldId] = [...(fieldErrors[fieldId] ?? []), message];
+  };
+
+  for (const field of schema.fields) {
+    const value = fieldValue(values, field);
+    const empty = value === undefined || value === null || value === "" || (Array.isArray(value) && value.length === 0);
+    if (empty) {
+      if (field.type === "image" && files.length > 0) normalized[field.id] = "uploaded";
+      else if (field.required) issue(field.id, "此字段为必填项");
+      continue;
+    }
+
+    if (field.type === "shortText" && (typeof value !== "string" || value.length > 200)) issue(field.id, "请输入 200 个字符以内的文本");
+    if (field.type === "longText" && (typeof value !== "string" || value.length > 4_000)) issue(field.id, "请输入 4000 个字符以内的内容");
+    if (field.type === "number" && ((typeof value !== "number" && typeof value !== "string") || value === "" || !Number.isFinite(Number(value)))) issue(field.id, "请输入有效数字");
+    if (field.type === "phone" && (typeof value !== "string" || !/^[0-9+\-\s()]{6,25}$/.test(value))) issue(field.id, "请输入有效联系电话");
+    if (field.type === "email" && (typeof value !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value))) issue(field.id, "请输入有效邮箱");
+    if (field.type === "date" && (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`)))) issue(field.id, "请输入有效日期");
+    if (field.type === "dateTime" && (typeof value !== "string" || Number.isNaN(Date.parse(value)))) issue(field.id, "请输入有效日期时间");
+    if (field.type === "singleChoice" && (typeof value !== "string" || (field.options?.length ? !field.options.includes(value) : false))) issue(field.id, "请选择有效选项");
+    if (field.type === "multipleChoice" && (!Array.isArray(value) || value.some((item) => typeof item !== "string" || (field.options?.length ? !field.options.includes(item) : false)))) issue(field.id, "请选择有效选项");
+
+    if (field.type === "image") normalized[field.id] = "uploaded";
+    else normalized[field.id] = value;
+  }
+
+  if (files.length > 5) fieldErrors.files = ["最多上传 5 张图片"];
+  return { values: normalized, fieldErrors };
+}
+
 publicRoutes.get("/:slug", async (context) => {
   if (!(await allowPublicRequest(context, context.req.param("slug"), 120, 60))) return apiError(context, 429, "RATE_LIMITED", "访问过于频繁，请稍后再试");
   const row = await findPublic(context, context.req.param("slug"));
@@ -97,7 +141,7 @@ publicRoutes.post("/:slug/submissions", async (context) => {
   if (project.content.type !== "form" && project.content.type !== "business") return apiError(context, 422, "VALIDATION_ERROR", "当前项目不接收表单提交");
   const schema = formSchema.parse(project.content.schema);
   const contentType = context.req.header("Content-Type") ?? "";
-  let values: Record<string, unknown> = {};
+  let values: Record<string, unknown>;
   let turnstileToken: string | undefined;
   const files: File[] = [];
   if (contentType.includes("multipart/form-data")) {
@@ -115,14 +159,9 @@ publicRoutes.post("/:slug/submissions", async (context) => {
     turnstileToken = parsed.data.turnstileToken;
   }
   if (!(await verifyTurnstile(context, turnstileToken))) return apiError(context, 422, "VALIDATION_ERROR", "请完成人机验证");
-  const missing = schema.fields.filter((field) => {
-    const idValue = values[field.id];
-    const labelValue = values[field.label];
-    const value = idValue === undefined || idValue === "" ? labelValue : idValue;
-    return field.required && (value === undefined || value === "" || (Array.isArray(value) && value.length === 0));
-  });
-  if (missing.length > 0) return apiError(context, 422, "VALIDATION_ERROR", "请填写所有必填字段", Object.fromEntries(missing.map((field) => [field.id, ["此字段为必填项"]])));
-  if (files.length > 5) return apiError(context, 422, "UPLOAD_REJECTED", "最多上传 5 张图片");
+  const validated = validateSubmissionValues(schema, values, files);
+  if (Object.keys(validated.fieldErrors).some((key) => key !== "files")) return apiError(context, 422, "VALIDATION_ERROR", "请检查表单内容", validated.fieldErrors);
+  if (validated.fieldErrors.files) return apiError(context, 422, "UPLOAD_REJECTED", validated.fieldErrors.files[0]);
   for (const file of files) {
     if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type) || file.size > PRODUCT_LIMITS.imageBytes) return apiError(context, 413, "UPLOAD_REJECTED", "图片格式或大小不符合要求");
   }
@@ -132,7 +171,7 @@ publicRoutes.post("/:slug/submissions", async (context) => {
   const ip = context.req.header("CF-Connecting-IP") ?? context.req.header("X-Forwarded-For") ?? "local";
   const submitterHash = await hashValue(ip);
   await context.env.DB.prepare("INSERT INTO submissions (id, project_id, code_id, version_id, values_json, submitter_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .bind(submissionId, row.project_id, row.code_id, row.version_id, JSON.stringify(values), submitterHash, createdAt)
+    .bind(submissionId, row.project_id, row.code_id, row.version_id, JSON.stringify(validated.values), submitterHash, createdAt)
     .run();
   for (const file of files) {
     const assetId = crypto.randomUUID();

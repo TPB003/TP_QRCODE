@@ -9,7 +9,7 @@ export function nowIso(): string {
 
 export function apiError(
   context: AppContext,
-  status: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500,
+  status: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429 | 500 | 503,
   code: string,
   message: string,
   fieldErrors?: Record<string, string[]>,

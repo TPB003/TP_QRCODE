@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Camera, Check, Maximize, ShieldCheck, X } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { LogoMark } from "@client/components/ui/logo-mark";
@@ -9,27 +9,69 @@ import "../public-scan.css";
 
 type FieldValue = string | string[];
 
+function TurnstileWidget({ onToken }: { onToken: (token: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+
+  useEffect(() => {
+    if (!siteKey || !containerRef.current) return;
+    let widgetId = "";
+    let disposed = false;
+    const render = () => {
+      if (!disposed && containerRef.current && window.turnstile) {
+        containerRef.current.replaceChildren();
+        widgetId = window.turnstile.render(containerRef.current, { sitekey: siteKey, callback: onToken, "expired-callback": () => onToken(""), "error-callback": () => onToken("") });
+      }
+    };
+    const script = document.querySelector<HTMLScriptElement>('script[data-tpqr-turnstile="true"]') ?? document.createElement("script");
+    if (!script.dataset.tpqrTurnstile) {
+      script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+      script.async = true;
+      script.defer = true;
+      script.dataset.tpqrTurnstile = "true";
+      script.addEventListener("load", render, { once: true });
+      document.head.appendChild(script);
+    } else if (window.turnstile) {
+      render();
+    } else {
+      script.addEventListener("load", render, { once: true });
+    }
+    return () => {
+      disposed = true;
+      if (widgetId && window.turnstile) window.turnstile.reset(widgetId);
+    };
+  }, [onToken, siteKey]);
+
+  return siteKey ? <div className="scan-turnstile" ref={containerRef} aria-label="人机验证" /> : null;
+}
+
 export function PublicScanView() {
   const { slug = "TPQRDEMO01" } = useParams();
   const [publicData, setPublicData] = useState<PublicResponse | null>(null);
   const [result, setResult] = useState<"normal" | "abnormal">("normal");
   const [description, setDescription] = useState("");
   const [previews, setPreviews] = useState<string[]>([]);
+  const previewsRef = useRef<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
+  const [turnstileToken, setTurnstileToken] = useState("");
   const [fieldValues, setFieldValues] = useState<Record<string, FieldValue>>({});
   const [submitted, setSubmitted] = useState(false);
   const [notice, setNotice] = useState("");
 
   useEffect(() => {
+    let active = true;
     void api.publicPage(slug).then((data) => {
+      if (!active) return;
       setPublicData(data);
       if (data.project.content.type === "form" || data.project.content.type === "business") {
         setFieldValues(Object.fromEntries(data.project.content.schema.fields.map((field) => [field.id, field.label === "设备名称" ? data.entity.name : ""])));
       }
-    }).catch((error) => setNotice(error instanceof Error ? error.message : "二维码页面加载失败"));
+    }).catch((error) => { if (active) setNotice(error instanceof Error ? error.message : "二维码页面加载失败"); });
+    return () => { active = false; };
   }, [slug]);
 
-  useEffect(() => () => previews.filter((preview) => preview.startsWith("blob:")).forEach((preview) => URL.revokeObjectURL(preview)), [previews]);
+  useEffect(() => { previewsRef.current = previews; }, [previews]);
+  useEffect(() => () => previewsRef.current.filter((preview) => preview.startsWith("blob:")).forEach((preview) => URL.revokeObjectURL(preview)), []);
 
   function addImages(files: FileList | null) {
     if (!files) return;
@@ -37,6 +79,12 @@ export function PublicScanView() {
     const next = selectedFiles.map((file) => URL.createObjectURL(file));
     setFiles((current) => [...current, ...selectedFiles]);
     setPreviews((current) => [...current, ...next]);
+  }
+
+  function removeImage(preview: string) {
+    const index = previews.indexOf(preview);
+    setPreviews((current) => current.filter((item) => item !== preview));
+    setFiles((current) => current.filter((_, currentIndex) => currentIndex !== index));
   }
 
   function setFieldValue(fieldId: string, value: FieldValue) {
@@ -52,7 +100,7 @@ export function PublicScanView() {
       const selected = Array.isArray(value) ? value : [];
       return <fieldset className="public-form-choice" key={field.id}><legend>{field.label}{field.required ? <b>*</b> : null}</legend><div>{(field.options ?? []).map((option) => <label key={option}><input type="checkbox" value={option} checked={selected.includes(option)} onChange={(event) => setFieldValue(field.id, event.target.checked ? [...selected, option] : selected.filter((item) => item !== option))} /><span>{option}</span></label>)}</div></fieldset>;
     }
-    if (field.type === "image") return <label className="public-form-field" key={field.id}><span>{field.label}{field.required ? <b>*</b> : null}</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { addImages(event.target.files); setFieldValue(field.id, event.target.files?.length ? "uploaded" : ""); }} /></label>;
+    if (field.type === "image") return <label className="public-form-field" key={field.id}><span>附件 / {field.label}{field.required ? <b>*</b> : null}</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label={`${field.label}附件`} onChange={(event) => { addImages(event.target.files); setFieldValue(field.id, event.target.files?.length ? "uploaded" : ""); }} /><small>支持 JPG / PNG / WebP，最多上传 5 个附件</small></label>;
     const inputType = field.type === "email" ? "email" : field.type === "phone" ? "tel" : field.type === "number" ? "number" : field.type === "date" ? "date" : field.type === "dateTime" ? "datetime-local" : "text";
     return <label className="public-form-field" key={field.id}><span>{field.label}{field.required ? <b>*</b> : null}</span><input type={inputType} value={typeof value === "string" ? value : value.join(", ")} onChange={(event) => setFieldValue(field.id, event.target.value)} /></label>;
   }
@@ -74,7 +122,7 @@ export function PublicScanView() {
         setNotice(`请填写必填字段：${missing.map((field) => field.label).join("、")}`);
         return;
       }
-      await api.submitPublic(slug, values, files);
+      await api.submitPublic(slug, values, files, turnstileToken || undefined);
       setSubmitted(true);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "提交失败");
@@ -94,7 +142,8 @@ export function PublicScanView() {
         <h1>{publicData?.project.name ?? "设备巡检记录"}</h1>
         {isInspection ? <article className="equipment-card"><img src={generatedAssets.equipmentCompressor} alt={publicData?.entity.name ?? "设备"} /><div><strong>{publicData?.entity.name ?? "设备"}</strong><span>设备编号 {publicData?.entity.externalId ?? ""}</span><span>{publicData?.entity.fields["位置"] ?? ""}</span></div><footer><span>设备状态</span><b>设备状态正常</b></footer></article> : null}
         {visibleFields.map(renderField)}
-        {isInspection ? <><fieldset><legend>巡检结果</legend><div><label className={result === "normal" ? "is-selected" : ""}><input type="radio" name="result" value="normal" checked={result === "normal"} onChange={() => setResult("normal")} /><i /><span>运行正常</span></label><label className={result === "abnormal" ? "is-selected" : ""}><input type="radio" name="result" value="abnormal" checked={result === "abnormal"} onChange={() => setResult("abnormal")} /><i /><span>发现异常</span></label></div></fieldset><label className="scan-description"><strong>异常说明</strong><textarea value={description} onChange={(event) => setDescription(event.target.value.slice(0, 200))} placeholder="请描述异常现象（选填）" /><span>{description.length}/200</span></label><div className="scan-photos"><strong>现场图片</strong><div>{previews.map((preview) => <figure key={preview}><img src={preview} alt="巡检现场预览" /><button type="button" aria-label="删除图片" onClick={() => { setPreviews((current) => current.filter((item) => item !== preview)); setFiles((current) => current.slice(0, -1)); }}><X /></button></figure>)}{previews.length < 5 ? <label><Camera /><span>上传图片</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => addImages(event.target.files)} /></label> : null}</div><small>支持 JPG / PNG / WebP，最多上传 5 张</small></div></> : null}
+        {isInspection ? <><fieldset><legend>巡检结果</legend><div><label className={result === "normal" ? "is-selected" : ""}><input type="radio" name="result" value="normal" checked={result === "normal"} onChange={() => setResult("normal")} /><i /><span>运行正常</span></label><label className={result === "abnormal" ? "is-selected" : ""}><input type="radio" name="result" value="abnormal" checked={result === "abnormal"} onChange={() => setResult("abnormal")} /><i /><span>发现异常</span></label></div></fieldset><label className="scan-description"><strong>异常说明</strong><textarea value={description} onChange={(event) => setDescription(event.target.value.slice(0, 200))} placeholder="请描述异常现象（选填）" /><span>{description.length}/200</span></label><div className="scan-photos"><strong>附件 / 现场图片</strong><div>{previews.map((preview) => <figure key={preview}><img src={preview} alt="巡检现场附件预览" /><button type="button" aria-label="删除图片" onClick={() => removeImage(preview)}><X /></button></figure>)}{previews.length < 5 ? <label><Camera /><span>添加附件</span><input type="file" accept="image/jpeg,image/png,image/webp" multiple aria-label="添加现场图片附件" onChange={(event) => addImages(event.target.files)} /></label> : null}</div><small>支持 JPG / PNG / WebP，最多上传 5 个附件</small></div></> : null}
+        {import.meta.env.VITE_TURNSTILE_SITE_KEY ? <TurnstileWidget onToken={setTurnstileToken} /> : null}
         <p className="scan-trust"><ShieldCheck />无需登录，数据将安全提交给二维码的创建者</p>
         <button className="scan-submit" type="button" onClick={() => void submit()}>提交巡检记录</button>
       </section>

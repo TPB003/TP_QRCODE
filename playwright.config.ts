@@ -2,6 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/browser",
+  workers: 1,
   outputDir: "tmp/test-results",
   reporter: [["list"], ["html", { outputFolder: "tmp/playwright-report", open: "never" }]],
   use: {
