@@ -6,6 +6,7 @@ import { assetRoutes } from "@worker/routes/asset-routes";
 import { authRoutes } from "@worker/routes/auth-routes";
 import { projectRoutes } from "@worker/routes/project-routes";
 import { publicRoutes } from "@worker/routes/public-routes";
+import { codeRoutes, publicCodeRoutes } from "@worker/routes/code-routes";
 
 export const app = new Hono<{ Bindings: Bindings }>();
 
@@ -33,7 +34,7 @@ const apiCors = createMiddleware<{ Bindings: Bindings }>(async (context, next) =
       context.header("Access-Control-Allow-Origin", allowedOrigin);
       context.header("Access-Control-Allow-Credentials", "true");
     }
-    context.header("Access-Control-Allow-Headers", "Content-Type, X-Revision");
+    context.header("Access-Control-Allow-Headers", "Content-Type, X-Revision, X-Idempotency-Key");
     context.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     context.header("Access-Control-Max-Age", "86400");
     context.header("Vary", "Origin");
@@ -53,6 +54,8 @@ app.use("*", secureHeaders());
 app.use("/api/*", apiCors);
 
 app.route("/api/auth", authRoutes);
+app.route("/api", codeRoutes);
+app.route("/api/public", publicCodeRoutes);
 app.route("/api", projectRoutes);
 app.route("/api", assetRoutes);
 app.route("/api/public", publicRoutes);
