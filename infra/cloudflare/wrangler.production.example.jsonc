@@ -1,0 +1,33 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "replace-with-your-worker-name",
+  "main": "../../apps/worker/src/index.ts",
+  "compatibility_date": "2026-08-10",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": "../../dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*", "/s/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "replace-with-your-d1-name",
+      "database_id": "replace-with-your-d1-id",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "ASSETS_BUCKET",
+      "bucket_name": "replace-with-your-r2-bucket"
+    }
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "APP_ORIGIN": "https://replace-with-your-domain",
+    "AUTH_DELIVERY_MODE": "resend",
+    "AUTH_ALLOWED_EMAILS": "*"
+  }
+}

@@ -1,0 +1,4 @@
+-- Legacy test-fixture entry point.
+-- Active local seed data lives in infra/cloudflare/seed/local.sql and is
+-- intentionally fictional. Keep this file empty so old test harnesses do not
+-- accidentally load inspection/business payloads.

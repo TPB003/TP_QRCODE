@@ -1,0 +1,210 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--stage);
+  font-family: var(--font-sans);
+  color: var(--ink);
+  text-rendering: geometricPrecision;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.route-fallback {
+  min-height: 100vh;
+  background: var(--stage);
+}
+
+.login-page { display: grid; min-height: 100vh; align-content: start; padding: 34px clamp(24px,6vw,100px); background: var(--stage); color: var(--paper); }
+.login-page > a { width: max-content; text-decoration: none; }
+.login-page > section { width: min(100%,560px); margin: 12vh auto 0; padding: 46px; border: 1px solid rgba(242,239,232,.22); background: var(--paper); box-shadow: 18px 20px 0 var(--cobalt); color: var(--ink); clip-path: polygon(0 0,calc(100% - 22px) 0,100% 22px,100% 100%,0 100%); }
+.login-page section > span { color: var(--cobalt); font-family: var(--font-mono); font-size: 12px; }.login-page h1 { margin: 18px 0 12px; font-size: 42px; }.login-page p { color: var(--muted); }.login-page label { display: grid; gap: 8px; margin-top: 22px; font-weight: 800; }.login-page label svg { width: 18px; }.login-page input { min-height: 52px; padding: 0 14px; border: 1px solid var(--hairline); background: transparent; }.login-page section > button { display: flex; width: 100%; min-height: 56px; align-items: center; justify-content: space-between; margin-top: 24px; padding: 0 20px; border: 0; background: var(--cobalt); color: white; font-weight: 900; }.login-page small { display: block; margin-top: 16px; color: var(--muted); }
+.settings-view { display: grid; max-width: 720px; gap: 18px; margin: 48px; padding: 36px; }.settings-view h1 { margin: 0; }.settings-view label { display: grid; gap: 8px; font-weight: 800; }.settings-view input,.settings-view select { min-height: 48px; padding: 0 12px; border: 1px solid var(--hairline); background: transparent; }.settings-view button { width: max-content; min-height: 46px; padding: 0 20px; border: 0; background: var(--cobalt); color: white; font-weight: 800; cursor: pointer; }.scan-notice { position: fixed; right: 18px; bottom: 90px; left: 18px; z-index: 15; max-width: 390px; margin: 0 auto; padding: 12px; background: var(--red); color: white; text-align: center; }
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--cobalt) 70%, white);
+  outline-offset: 3px;
+}
+
+/* Shared TP QR primitives. Kept CSS-native so public pages never depend on a bitmap asset. */
+.tp-paper {
+  position: relative;
+  background: var(--paper-bright);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-paper);
+}
+.tp-torn { position: relative; isolation: isolate; }
+.tp-torn::before, .tp-torn::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 8px;
+  background: var(--paper);
+  content: "";
+  clip-path: polygon(0 42%, 8% 68%, 15% 38%, 24% 70%, 35% 30%, 45% 62%, 57% 32%, 67% 70%, 80% 35%, 90% 65%, 100% 32%, 100% 100%, 0 100%);
+}
+.tp-torn::before { top: -7px; }
+.tp-torn::after { bottom: -7px; transform: rotate(180deg); }
+.tp-calibration {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 1px solid currentColor;
+  opacity: .5;
+}
+.tp-calibration::before, .tp-calibration::after { display: block; background: currentColor; content: ""; }
+.tp-calibration::before { width: 100%; height: 1px; margin-top: 13px; }
+.tp-calibration::after { width: 1px; height: 100%; margin: -15px auto 0; }
+.tp-status { display: inline-flex; align-items: center; gap: 7px; font-size: .82rem; font-weight: 700; }
+.tp-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--cobalt); }
+.tp-status--teal i { background: var(--teal); }
+.tp-status--red i { background: var(--red); }
+.tp-status--muted i { background: var(--muted); }
+.tp-toast { position: fixed; right: 20px; bottom: 24px; z-index: 80; display: flex; max-width: min(420px, calc(100vw - 32px)); min-height: 48px; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 14px 12px 18px; border: 1px solid var(--hairline); background: var(--paper-bright); box-shadow: 0 12px 32px rgba(0,0,0,.18); pointer-events: none; }
+.tp-toast--success { border-left: 4px solid var(--teal); }
+.tp-toast--error { border-left: 4px solid var(--red); }
+.tp-toast button { display: inline-grid; width: 32px; height: 32px; place-items: center; border: 0; background: transparent; color: inherit; cursor: pointer; }
+
+a {
+  color: inherit;
+}
+
+.logo-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+}
+
+.logo-mark svg {
+  width: 36px;
+  height: 36px;
+}
+
+.logo-mark strong {
+  font-size: 24px;
+  letter-spacing: -0.04em;
+}
+
+.button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  padding: 0 22px;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 0 100%);
+  transition: transform 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+.button:hover {
+  transform: translateY(-2px);
+}
+
+.button--primary {
+  background: var(--cobalt);
+  color: white;
+}
+
+.button--secondary {
+  border-color: var(--hairline);
+  background: transparent;
+}
+
+.button--ghost {
+  color: var(--cobalt);
+}
+
+.button--teal {
+  background: var(--teal);
+  color: var(--stage);
+}
+
+.paper-surface {
+  position: relative;
+  background-color: var(--paper);
+  background-image: linear-gradient(rgba(242, 239, 232, 0.92), rgba(242, 239, 232, 0.92)), var(--paper-texture);
+  background-size: auto, 760px 760px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow: var(--shadow-paper);
+}
+
+.paper-surface--top-right {
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+}
+
+.paper-surface--both {
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px));
+}
+
+.index-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.foundation-page,
+.not-found-page {
+  display: grid;
+  min-height: 100vh;
+  align-content: center;
+  gap: 30px;
+  padding: clamp(24px, 5vw, 80px);
+  background: var(--stage);
+}
+
+.foundation-page > .paper-surface,
+.not-found-page {
+  max-width: 760px;
+  padding: clamp(28px, 5vw, 64px);
+}
+
+.foundation-page h1,
+.not-found-page h1 {
+  margin: 8px 0 18px;
+  font-family: var(--font-display);
+  font-size: clamp(44px, 7vw, 84px);
+  line-height: 0.95;
+  letter-spacing: -0.05em;
+}
+
+.not-found-page {
+  color: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
