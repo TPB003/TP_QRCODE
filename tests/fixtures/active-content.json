@@ -1,0 +1,43 @@
+{
+  "image": {
+    "type": "image",
+    "title": "演示海报",
+    "assetId": "11111111-1111-4111-8111-111111111111",
+    "alt": "蓝色几何海报"
+  },
+  "video": {
+    "type": "video",
+    "title": "产品演示视频",
+    "assetId": "22222222-2222-4222-8222-222222222222",
+    "posterAssetId": null
+  },
+  "audio": {
+    "type": "audio",
+    "title": "欢迎语音",
+    "assetId": "33333333-3333-4333-8333-333333333333"
+  },
+  "file": {
+    "type": "file",
+    "title": "公开资料",
+    "assetId": "44444444-4444-4444-8444-444444444444",
+    "fileName": "tp-qr-guide.pdf"
+  },
+  "url": {
+    "type": "url",
+    "title": "TP QR 文档",
+    "url": "https://example.com/tp-qr"
+  },
+  "contact": {
+    "type": "contact",
+    "title": "演示联系人",
+    "fullName": "林晓明",
+    "organization": "TP QR",
+    "email": "demo@example.com",
+    "telephone": "+86 138 0000 0000"
+  },
+  "text": {
+    "type": "text",
+    "title": "活动说明",
+    "body": "这是用于自动化测试的虚构文字内容。"
+  }
+}

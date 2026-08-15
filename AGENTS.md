@@ -1,42 +1,81 @@
-# Repository Guidelines
+# TP QR repository guidelines
 
-## Project Structure & Module Organization
+## Project structure
 
-This repository is currently a minimal starting point for a QR-code generation tool. The root contains `README.md` for the project overview and `LICENSE` for the MIT license; no application or test code has been committed yet. Keep root-level files limited to project-wide documentation and configuration. When implementation begins, place production code in `src/`, automated tests in `tests/`, and non-code resources such as sample images or fixtures in `assets/`. Mirror source paths in tests where practical, for example `src/encoder.*` and `tests/encoder_test.*`.
+TP QR is an npm-workspaces monorepo. Keep the root limited to shared tooling,
+documentation, licensing, and workspace configuration.
 
-## Build, Test, and Development Commands
+```text
+apps/web/                 React/Vite browser application
+apps/worker/              Hono/Cloudflare Worker API
+packages/domain/          shared API and domain contracts
+packages/content/         seven active-content models and validators
+packages/qr/              rendering, download, and decoding primitives
+packages/ui/              visual tokens and reusable interface primitives
+infra/cloudflare/         migrations, local seed, and deployment templates
+tests/                    unit, integration, browser, security, and fixtures
+docs/                     architecture, operations, testing, and security notes
+scripts/                  deterministic fixture and repository checks
+assets/open/              small, redistributable assets only
+```
 
-No build system, dependency manifest, or test runner is configured today. Before adding dependencies, choose tooling appropriate to the implementation language and document the exact commands in `README.md` and this file. Until then, useful repository checks are:
+The public repository must contain reproducible source only. Never commit
+`.dev.vars`, `.env` files, production identifiers, private QR payloads,
+personal submissions, generated reports, or local Cloudflare state. Keep
+generated output in `tmp/`, `output/`, or `.wrangler/`; these directories are
+ignored by Git.
 
-- `git status --short`: review changed and untracked files.
-- `git diff --check`: detect whitespace errors before committing.
-- `git diff`: inspect the complete local patch.
+## Development commands
 
-Do not describe a change as tested unless a reproducible test command exists and has been run.
+Use Node.js 22.18+ and npm 10+. From the repository root:
 
-## Coding Style & Naming Conventions
+```powershell
+npm ci
+npm run setup:local
+npm run dev
+```
 
-Use spaces, not tabs. Default to four-space indentation for source code and two spaces for JSON or YAML, unless the selected language's standard formatter requires otherwise. Keep modules focused and use descriptive names tied to QR concepts, such as `QrEncoder`, `error_correction`, or `payloadValidator`. Adopt the ecosystem's standard formatter and linter with the first code contribution, commit their configuration, and avoid unrelated formatting changes.
+The browser runs on `http://127.0.0.1:5173`; the Worker runs on
+`http://127.0.0.1:8787`. Useful gates are:
 
-## Testing Guidelines
+```powershell
+npm run lint
+npm run typecheck
+npm run test:unit
+npm run test:integration
+npm run test:security
+npm run test:browser
+npm run check:all
+npm run check:opensource
+git diff --check
+```
 
-Add tests with every behavior change. Store them under `tests/`, name them after the unit under test, and cover normal input, empty input, invalid payloads, Unicode text, and boundary sizes. Prefer deterministic fixtures; generated QR output should be verified by decoding it or comparing stable structural properties rather than fragile screenshots. Document any coverage command once a framework is selected.
+Do not describe a change as tested unless the exact command has completed
+successfully. Browser tests require a local Chromium/Chrome installation and
+must cover both desktop and mobile viewports.
 
-## Commit & Pull Request Guidelines
+## Code and test conventions
 
-History currently contains only `Initial commit`, so no mature convention exists. Use short, imperative commit subjects such as `Add QR payload validation`; keep each commit logically focused. Pull requests should explain the purpose, implementation approach, and verification performed, link related issues, and include sample output or screenshots for visual changes. Call out new dependencies, compatibility decisions, and follow-up work explicitly.
+Use spaces, TypeScript strict mode, focused modules, and the formatter/linter
+already configured in the repository. New behavior needs a deterministic test.
+Mirror source paths under `tests/` where practical. Validate normal, empty,
+Unicode, malicious, and boundary input. Prefer structural QR assertions or
+decode/round-trip checks over screenshot-only assertions.
 
-## Security & Configuration
+Do not modify another workstream's owned contract without coordination. Keep
+shared public types in `packages/domain`, content validation in `packages/content`,
+and browser-independent QR behavior in `packages/qr`.
 
-Never commit secrets, personal payloads, generated private QR codes, or local environment files. Add tool-specific caches and generated output to `.gitignore` when those tools are introduced.
+## Commits and pull requests
 
-## 工作区边界
+Use short imperative commit subjects and keep commits logically focused. A PR
+must explain the behavior, tests run, compatibility decisions, and known
+limitations. Attach screenshots or a short recording for visual changes.
 
-- 将 `D:\stud\QRCODE\TP_QRCODE` 视为本项目唯一允许写入的文件系统范围。
-- 不得在本项目之外创建、修改、覆盖、移动、重命名或删除任何文件和目录。
-- 仅在读取项目所需的官方文档、已安装技能或内置运行时文件时访问项目外路径；读取权限不代表写入权限。
-- 不得修改 Codex 全局配置、用户配置、系统目录、其他仓库或 `C:\Users\99350` 下的文件，除非用户明确授权具体目标路径。
-- 不得全局安装依赖。项目依赖必须通过本仓库的依赖清单和项目本地环境安装。
-- 临时文件、下载内容、生成图片、缓存、截图和测试输出必须保存在本仓库的 `tmp/`、`output/` 或其他项目内目录。
-- 执行命令时应将 `D:\stud\QRCODE\TP_QRCODE` 设置为工作目录。
-- 如果任务确实需要写入项目外路径，必须停止操作，说明具体路径、目的和影响，并获得用户明确许可后才能继续。
+## Security
+
+Treat all uploaded content and public links as untrusted. Enforce safe URL
+schemes, MIME/file-header checks, size limits, authorization, rate limiting,
+and immutable published versions in the Worker. R2 remains private and is
+accessed through authorized Worker routes only. Report vulnerabilities through
+the process in `SECURITY.md`; do not publish exploit payloads in issues.
