@@ -1,27 +1,14 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "useDefineForClassFields": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "allowJs": false,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
-    "types": ["vite/client", "@cloudflare/workers-types", "@cloudflare/vitest-pool-workers/types", "vitest/globals"],
-    "paths": {
-      "@client/*": ["./src/client/*"],
-      "@worker/*": ["./src/worker/*"],
-      "@shared/*": ["./src/shared/*"]
-    }
-  },
-  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts", "vitest.integration.config.ts", "playwright.config.ts"],
-  "exclude": ["dist", "node_modules"]
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "apps",
+    "packages",
+    "tests",
+    "apps/web/vite.config.ts",
+    "vitest.config.ts",
+    "vitest.integration.config.ts",
+    "playwright.config.ts",
+    "eslint.config.js"
+  ],
+  "exclude": ["dist", "node_modules", "tmp", ".wrangler"]
 }

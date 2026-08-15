@@ -3,16 +3,20 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "engines": {
     "node": ">=22.18.0",
     "npm": ">=10"
   },
   "scripts": {
     "dev": "concurrently -k -n client,worker -c blue,green \"npm:dev:client\" \"npm:dev:worker\"",
-    "dev:client": "vite --host 127.0.0.1",
-    "dev:worker": "wrangler dev --port 8787",
-    "build": "npm run typecheck && vite build",
-    "preview": "vite preview --host 127.0.0.1",
+    "dev:client": "vite --config apps/web/vite.config.ts --host 127.0.0.1",
+    "dev:worker": "wrangler dev --config apps/worker/wrangler.jsonc --port 8787",
+    "build": "npm run typecheck && vite build --config apps/web/vite.config.ts",
+    "preview": "vite preview --config apps/web/vite.config.ts --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "npm run test:unit && npm run test:integration",
@@ -21,10 +25,14 @@
     "test:browser": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "check:local": "npm run lint && npm run typecheck && npm run test && npm run build && npm run test:browser",
-    "db:migrate:local": "wrangler d1 migrations apply tp-qr-db --local",
-    "db:seed:local": "wrangler d1 execute tp-qr-db --local --file=tests/fixtures/seed.sql",
-    "db:migrate:remote": "wrangler d1 migrations apply tp-qr-db --remote",
-    "deploy": "npm run build && wrangler deploy"
+    "check:all": "npm run check:local && npm run test:security && npm run check:opensource",
+    "check:opensource": "node scripts/check-open-source.mjs",
+    "test:security": "vitest run tests/security",
+    "setup:local": "npm run db:migrate:local && npm run db:seed:local",
+    "db:migrate:local": "wrangler d1 migrations apply tp-qr-db --local --config apps/worker/wrangler.jsonc",
+    "db:seed:local": "wrangler d1 execute tp-qr-db --local --config apps/worker/wrangler.jsonc --file=infra/cloudflare/seed/local.sql",
+    "db:migrate:remote": "wrangler d1 migrations apply tp-qr-db --remote --config apps/worker/wrangler.jsonc",
+    "deploy": "npm run build && wrangler deploy --config apps/worker/wrangler.jsonc"
   },
   "dependencies": {
     "@dnd-kit/core": "latest",

@@ -1,11 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tp-qr",
-  "main": "src/worker/index.ts",
+  "main": "src/index.ts",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
-    "directory": "./dist",
+    "directory": "../../dist",
     "binding": "ASSETS",
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*", "/s/*"]
@@ -14,14 +14,13 @@
     {
       "binding": "DB",
       "database_name": "tp-qr-db",
-      "database_id": "08ede593-cd75-4014-8611-03876d0991c2",
-      "migrations_dir": "migrations"
+      "migrations_dir": "../../infra/cloudflare/migrations"
     }
   ],
   "r2_buckets": [
     {
       "binding": "ASSETS_BUCKET",
-      "bucket_name": "tp-qr-assets"
+      "bucket_name": "tp-qr-assets-local"
     }
   ],
   "vars": {
@@ -31,18 +30,7 @@
     "AUTH_TEST_CODE": "123456",
     "AUTH_ALLOWED_EMAILS": "*"
   },
-  "env": {
-    "production": {
-      "name": "tp-qr",
-      "vars": {
-        "ENVIRONMENT": "production",
-        "APP_ORIGIN": "https://tp-qr.tpqrcode.workers.dev",
-        "AUTH_DELIVERY_MODE": "resend",
-        "AUTH_TEST_CODE": "",
-        "AUTH_ALLOWED_EMAILS": "*"
-      }
-    }
-  },
+  "env": {},
   "triggers": {
     "crons": ["15 3 * * *"]
   }

@@ -2,12 +2,14 @@
 /archive/
 /output/
 /tmp/
+/tmp/worktrees/
 
 # Dependencies and build output
 /node_modules/
 /dist/
 /coverage/
 /.wrangler/
+**/.wrangler/
 
 # Local environment and test artifacts
 .dev.vars
@@ -16,6 +18,8 @@
 !.env.example
 /playwright-report/
 /test-results/
+/assets/local/
+/assets/fixtures/generated/
 
 # Editor and operating-system files
 .DS_Store
