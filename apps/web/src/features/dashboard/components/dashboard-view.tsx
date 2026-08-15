@@ -38,10 +38,14 @@ function initialContent(type: CodeType): ActiveContent {
 }
 
 async function readAnalytics(codeId: string): Promise<number[]> {
-  const response = await fetch(`/api/codes/${encodeURIComponent(codeId)}/analytics?days=30`, { credentials: "include" });
-  if (!response.ok) return [];
-  const body: { data?: { items?: Array<{ scans?: number }> } } = await response.json();
-  return body.data?.items?.map((item) => Number(item.scans ?? 0)) ?? [];
+  try {
+    const response = await fetch(`/api/codes/${encodeURIComponent(codeId)}/analytics?days=30`, { credentials: "include" });
+    if (!response.ok) return [];
+    const body: { data?: { items?: Array<{ scans?: number }> } } = await response.json();
+    return body.data?.items?.map((item) => Number(item.scans ?? 0)) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 export function DashboardView() {
