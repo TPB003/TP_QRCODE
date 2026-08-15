@@ -46,6 +46,45 @@ a {
   outline-offset: 3px;
 }
 
+/* Shared TP QR primitives. Kept CSS-native so public pages never depend on a bitmap asset. */
+.tp-paper {
+  position: relative;
+  background: var(--paper-bright);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-paper);
+}
+.tp-torn { position: relative; isolation: isolate; }
+.tp-torn::before, .tp-torn::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 8px;
+  background: var(--paper);
+  content: "";
+  clip-path: polygon(0 42%, 8% 68%, 15% 38%, 24% 70%, 35% 30%, 45% 62%, 57% 32%, 67% 70%, 80% 35%, 90% 65%, 100% 32%, 100% 100%, 0 100%);
+}
+.tp-torn::before { top: -7px; }
+.tp-torn::after { bottom: -7px; transform: rotate(180deg); }
+.tp-calibration {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 1px solid currentColor;
+  opacity: .5;
+}
+.tp-calibration::before, .tp-calibration::after { display: block; background: currentColor; content: ""; }
+.tp-calibration::before { width: 100%; height: 1px; margin-top: 13px; }
+.tp-calibration::after { width: 1px; height: 100%; margin: -15px auto 0; }
+.tp-status { display: inline-flex; align-items: center; gap: 7px; font-size: .82rem; font-weight: 700; }
+.tp-status i { width: 8px; height: 8px; border-radius: 50%; background: var(--cobalt); }
+.tp-status--teal i { background: var(--teal); }
+.tp-status--red i { background: var(--red); }
+.tp-status--muted i { background: var(--muted); }
+.tp-toast { position: fixed; right: 20px; bottom: 24px; z-index: 80; display: flex; max-width: min(420px, calc(100vw - 32px)); min-height: 48px; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 14px 12px 18px; border: 1px solid var(--hairline); background: var(--paper-bright); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.tp-toast--success { border-left: 4px solid var(--teal); }
+.tp-toast--error { border-left: 4px solid var(--red); }
+.tp-toast button { display: inline-grid; width: 32px; height: 32px; place-items: center; border: 0; background: transparent; color: inherit; cursor: pointer; }
+
 a {
   color: inherit;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Plus, Search } from "lucide-react";
+import { ArrowRight, Plus, QrCode, Search } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppShell } from "@client/components/layout/app-shell";
 import { QrSpecimen } from "@client/components/ui/qr-specimen";
@@ -23,8 +23,8 @@ export function DashboardView() {
   const [creating, setCreating] = useState(false);
   const [createNotice, setCreateNotice] = useState("");
   const [newName, setNewName] = useState("新建二维码项目");
-  const [newKind, setNewKind] = useState<ProjectDraft["kind"]>("business");
-  const [templateKey, setTemplateKey] = useState<(typeof TEMPLATE_KEYS)[number]>("inspection");
+  const [newKind, setNewKind] = useState<ProjectDraft["kind"]>("text");
+  const [templateKey, setTemplateKey] = useState<(typeof TEMPLATE_KEYS)[number]>("collection");
   const navigate = useNavigate();
   useEffect(() => {
     let active = true;
@@ -52,7 +52,7 @@ export function DashboardView() {
   );
 
   const statusLabel = (project: ProjectDraft) => project.publishedVersionId ? "已发布" : project.status === "paused" ? "已暂停" : "草稿";
-  const kindLabel = (project: ProjectDraft) => ({ text: "文本", url: "网址", image: "图片", form: "表单", business: "业务模板" })[project.kind];
+  const kindLabel = (project: ProjectDraft) => ({ text: "文字", url: "网址", image: "图片", video: "视频", audio: "音频", file: "文件", contact: "名片", form: "文字", business: "活码" } as Record<string, string>)[project.kind] ?? "活码";
 
   async function createProject() {
     try {
@@ -70,9 +70,10 @@ export function DashboardView() {
     <AppShell>
       <section className="dashboard-view">
         <div className="dashboard-view__heading">
-          <h1>PROJECT<br />INDEX</h1>
+          <h1>ACTIVE<br />CODES</h1>
           <div className="dashboard-view__actions">
-            <button type="button" onClick={() => setCreating(true)}><Plus />新建项目</button>
+            <button type="button" onClick={() => setCreating(true)}><Plus />新建活码</button>
+            <Link className="dashboard-decoder-link" to="/decoder"><QrCode />解码二维码</Link>
             <label><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索项目" /></label>
             <div className="dashboard-filters">
               {["全部", "已发布", "草稿", "已暂停"].map((item) => <button className={filter === item ? "is-active" : ""} key={item} type="button" onClick={() => setFilter(item)}>{item}</button>)}
@@ -81,7 +82,7 @@ export function DashboardView() {
         </div>
 
         <article className="dashboard-trend paper-panel">
-          <header><h2>最近 30 天</h2><span>扫描次数</span></header>
+          <header><h2>最近 30 天</h2><span>活码扫描次数</span></header>
           <svg viewBox="0 0 560 230" role="img" aria-label="最近 30 天扫描趋势">
             {[0, 1, 2, 3].map((lineIndex) => <line key={lineIndex} x1="0" x2="560" y1={lineIndex * 65 + 15} y2={lineIndex * 65 + 15} />)}
             <polyline points={trendPoints(trend)} />

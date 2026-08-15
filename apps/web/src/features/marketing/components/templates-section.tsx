@@ -1,12 +1,12 @@
-import { ArrowRight, ClipboardCheck, Contact, DoorOpen, FileInput, MapPin, Phone, Users, Wrench } from "lucide-react";
+import { ArrowRight, Contact, FileAudio, FileImage, FileInput, FileText, FileVideo, Globe2, MapPin, Phone, Users, Wrench } from "lucide-react";
 import { QrSpecimen } from "@client/components/ui/qr-specimen";
 import { businessTemplates } from "../model/marketing-data";
 
-const templateIcons = [ClipboardCheck, Contact, Wrench, FileInput, DoorOpen];
+const templateIcons = [FileImage, FileVideo, FileAudio, FileInput, Globe2, Contact, FileText];
 const entities = [
-  { name: "空压机 1 号", id: "EQP-AC-0001", type: "设备" },
-  { name: "配电柜 3 号", id: "PDB-3-0003", type: "配电" },
-  { name: "消防栓 A-12", id: "HOS-A-0012", type: "消防" },
+  { name: "品牌手册", id: "IMG-2026-001", type: "图片" },
+  { name: "产品介绍", id: "VID-2026-002", type: "视频" },
+  { name: "联系卡片", id: "VCF-2026-003", type: "名片" },
 ];
 
 export function TemplatesSection() {
@@ -14,11 +14,11 @@ export function TemplatesSection() {
     <section className="templates-section" id="templates">
       <div className="templates-section__heading">
         <span className="templates-section__number">04</span>
-        <p>BATCH<br />DOSSIER</p>
-        <h2>一套模板，生成每一个独立二维码</h2>
+        <p>CONTENT<br />DOSSIER</p>
+        <h2>七种内容，一个统一的活码工作台</h2>
       </div>
 
-      <div className="template-tags" aria-label="业务模板">
+      <div className="template-tags" aria-label="活码内容类型">
         {businessTemplates.map((template, index) => {
           const Icon = templateIcons[index];
           return <article key={template}><span aria-hidden="true" /><Icon /><strong>{template}</strong></article>;
@@ -27,13 +27,13 @@ export function TemplatesSection() {
 
       <div className="batch-flow">
         <article className="csv-sheet paper-texture">
-          <header><strong>CSV 导入</strong><span>单次最多 200 条</span></header>
-          <code>id,name,type,location,dept,owner,phone</code>
+          <header><strong>批量导入</strong><span>单次最多 200 条</span></header>
+          <code>id,title,type,source,description</code>
           <ol>
-            <li>空压机 1 号，设备，一车间，设备部，张工</li>
-            <li>配电柜 3 号，设备，二车间，电气部，李工</li>
-            <li>消防栓 A-12，设备，东区通道，安防部，王工</li>
-            <li>设备 X，设备，仓库，设备部，—</li>
+            <li>IMG-2026-001，品牌手册，图片，CDN，产品视觉资产</li>
+            <li>VID-2026-002，产品介绍，视频，CDN，30 秒介绍</li>
+            <li>VCF-2026-003，联系卡片，名片，本地，销售团队</li>
+            <li>TXT-2026-004，活动说明，文字，编辑器，最新信息</li>
           </ol>
         </article>
 

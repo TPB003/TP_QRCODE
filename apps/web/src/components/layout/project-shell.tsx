@@ -11,6 +11,7 @@ export function ProjectShell({ children }: PropsWithChildren) {
   const location = useLocation();
   const navigate = useNavigate();
   const [authChecked, setAuthChecked] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -19,6 +20,15 @@ export function ProjectShell({ children }: PropsWithChildren) {
     }).catch(() => navigate(`/login?next=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`, { replace: true }));
     return () => { active = false; };
   }, [location, navigate]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [menuOpen]);
 
   if (!authChecked) return <div className="route-loading" role="status">正在检查登录状态…</div>;
 
@@ -40,11 +50,15 @@ export function ProjectShell({ children }: PropsWithChildren) {
         <Link to="/"><LogoMark inverted compact /></Link>
         <strong>项目工作台</strong>
         <span>TP QR PAPER WORKBENCH</span>
+        <button className="shell-menu-button" type="button" aria-label="打开项目导航" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
+          <span aria-hidden="true" /><span aria-hidden="true" /><span aria-hidden="true" />
+        </button>
       </header>
-      <aside className="project-sidebar">
+      {menuOpen ? <button className="shell-drawer-backdrop" type="button" aria-label="关闭导航" onClick={() => setMenuOpen(false)} /> : null}
+      <aside className={`project-sidebar ${menuOpen ? "is-open" : ""}`}>
         <nav aria-label="项目导航">
           {projectNavigation.map(({ to, label, icon: Icon }) => (
-            <NavLink key={label} to={to}><Icon />{label}</NavLink>
+            <NavLink key={label} to={to} onClick={() => setMenuOpen(false)}><Icon /><span>{label}</span></NavLink>
           ))}
         </nav>
       </aside>

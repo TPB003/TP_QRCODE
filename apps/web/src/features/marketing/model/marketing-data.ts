@@ -22,4 +22,4 @@ export const analyticsSeries = {
   submissions: [28, 56, 42, 63, 51, 50, 80, 75, 56, 40, 35, 61, 49, 67, 50, 60, 52, 60, 49, 72],
 };
 
-export const businessTemplates = ["签到报名", "人员管理", "设备巡检", "信息收集", "访客登记"];
+export const businessTemplates = ["图片", "视频", "音频", "文件", "网址", "名片", "文字"];

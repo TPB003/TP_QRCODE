@@ -8,3 +8,17 @@
 .batch-table-sheet { margin-top: 36px; border: 1px solid var(--hairline); background: rgba(251,249,243,.92); box-shadow: 0 18px 32px rgba(15,23,42,.14); }.batch-table-sheet > header { display: flex; min-height: 58px; align-items: center; justify-content: space-between; padding: 0 26px; }.batch-table-sheet > header button { border: 0; background: transparent; }.batch-table-row { display: grid; min-height: 94px; grid-template-columns: 80px 1.1fr 1fr 120px 1fr 1fr; align-items: center; border-top: 1px solid var(--hairline); }.batch-table-row > * { padding: 0 18px; }.batch-table-head { min-height: 52px; background: rgba(15,23,42,.04); font-weight: 800; }.batch-table-row > span { display: flex; align-items: center; gap: 8px; }.batch-table-row > span i { width: 10px; height: 10px; border-radius: 50%; background: var(--teal); }.batch-table-row.is-error { border: 1px solid var(--red); color: var(--red); }.batch-table-row.is-error > span i { background: var(--red); }.batch-table-sheet footer { display: flex; min-height: 74px; align-items: center; justify-content: flex-end; gap: 28px; padding: 0 24px; }.batch-table-sheet footer button { display: flex; min-height: 48px; align-items: center; gap: 9px; padding: 0 24px; border: 0; background: var(--cobalt); color: white; font-weight: 800; }
 @media(max-width:1300px){.batch-heading{position:relative;width:auto}.batch-steps{margin:30px 0 0}.batch-heading h1{font-size:100px}.batch-table-sheet{overflow-x:auto}.batch-table-row{min-width:980px}}
 @media(max-width:800px){.batch-codes-view{padding:22px 14px}.batch-steps{overflow-x:auto;grid-template-columns:repeat(3,300px);padding-bottom:15px}.batch-heading h1{font-size:82px}}
+
+.batch-codes-view { max-width: 100%; overflow: hidden; }
+.batch-step-sheet > button, .batch-step-sheet label, .batch-table-sheet button { min-height: 44px; }
+.batch-table-sheet { max-width: 100%; overflow: hidden; }
+@media (max-width: 560px) {
+  .batch-heading { width: 100%; }
+  .batch-heading h1 { font-size: clamp(64px, 22vw, 96px); }
+  .batch-heading p { margin: 18px 0; }
+  .batch-steps { display: grid; grid-template-columns: 1fr; overflow: visible; }
+  .batch-step-sheet { min-height: 300px; }
+  .batch-table-sheet > header { flex-wrap: wrap; gap: 8px; padding: 12px 16px; }
+  .batch-table-sheet footer { min-height: 96px; flex-wrap: wrap; gap: 12px; justify-content: flex-start; padding: 12px 16px; }
+  .batch-table-sheet footer span { width: 100%; font-size: 12px; }
+}
