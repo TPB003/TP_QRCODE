@@ -1,30 +1,16 @@
 import { useMemo } from "react";
-import type { ActiveContent, ActiveContentType } from "@tpqr/domain";
-
-export const CONTENT_TYPES: readonly ActiveContentType[] = ["image", "video", "audio", "file", "url", "contact", "text"];
-const LABELS: Record<ActiveContentType, string> = { image: "图片", video: "视频", audio: "音频", file: "文件", url: "网址", contact: "名片", text: "文字" };
-
-export function emptyContent(type: ActiveContentType): ActiveContent {
-  switch (type) {
-    case "image": return { type, assetId: "00000000-0000-0000-0000-000000000000", alt: "", title: "" };
-    case "video": return { type, assetId: "00000000-0000-0000-0000-000000000000", title: "", posterAssetId: null, autoplay: false, loop: false };
-    case "audio": return { type, assetId: "00000000-0000-0000-0000-000000000000", title: "", artist: "", coverAssetId: null };
-    case "file": return { type, assetId: "00000000-0000-0000-0000-000000000000", title: "", description: "", downloadName: "download" };
-    case "url": return { type, url: "https://", title: "", description: "" };
-    case "contact": return { type, firstName: "", lastName: "", organization: "", title: "", phone: "", email: "", website: "", address: "", note: "" };
-    case "text": return { type, title: "", text: "" };
-  }
-}
+import type { ActiveContent } from "@tpqr/domain";
+import { CONTENT_LABELS, CONTENT_TYPES, emptyContent } from "./content-editor-model";
 
 type Props = { value: ActiveContent; onChange: (next: ActiveContent) => void; onUpload: (file: File, purpose?: string) => Promise<string>; uploading?: boolean };
 
 export function ContentEditor({ value, onChange, onUpload, uploading = false }: Props) {
-  const title = useMemo(() => LABELS[value.type], [value.type]);
+  const title = useMemo(() => CONTENT_LABELS[value.type], [value.type]);
   const set = (key: string, next: unknown) => onChange({ ...value, [key]: next });
   const upload = async (file: File | undefined, purpose = value.type) => { if (!file) return; const id = await onUpload(file, purpose); set("assetId", id); };
   return <section className="tp-content-editor" aria-label="活码内容编辑器">
     <div className="tp-content-types" role="tablist" aria-label="内容类型">
-      {CONTENT_TYPES.map((type) => <button key={type} type="button" role="tab" aria-selected={type === value.type} className={type === value.type ? "is-active" : ""} onClick={() => onChange(emptyContent(type))}>{LABELS[type]}</button>)}
+      {CONTENT_TYPES.map((type) => <button key={type} type="button" role="tab" aria-selected={type === value.type} className={type === value.type ? "is-active" : ""} onClick={() => onChange(emptyContent(type))}>{CONTENT_LABELS[type]}</button>)}
     </div>
     <h2>{title}内容</h2>
     {(value.type === "image" || value.type === "video" || value.type === "audio" || value.type === "file") && <label className="tp-upload-field"><span>{value.type === "file" ? "选择文件" : `上传${title}`}</span><input type="file" accept={value.type === "image" ? "image/*" : value.type === "video" ? "video/*" : value.type === "audio" ? "audio/*" : undefined} disabled={uploading} onChange={(e) => void upload(e.target.files?.[0])} />{uploading ? <small>上传中…</small> : value.assetId.startsWith("00000000") ? <small>尚未上传</small> : <small>已上传资源：{value.assetId.slice(0, 8)}</small>}</label>}

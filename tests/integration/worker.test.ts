@@ -90,7 +90,7 @@ describe("TP QR Worker API", () => {
     expect(submission.status).toBe(201);
     const multipart = new FormData();
     multipart.set("values", JSON.stringify(values));
-    multipart.append("files", new File([new Uint8Array([1, 2, 3])], "evidence.webp", { type: "image/webp" }));
+    multipart.append("files", new File([new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50])], "evidence.webp", { type: "image/webp" }));
     const multipartSubmission = await SELF.fetch(`http://local/api/public/${slug}/submissions`, { method: "POST", body: multipart });
     expect(multipartSubmission.status).toBe(201);
     const multipartBody = await json<SubmissionResponse>(multipartSubmission);
@@ -149,7 +149,7 @@ describe("TP QR Worker API", () => {
     const ownerCookie = await login("asset-owner@tpqr.local");
     const upload = new FormData();
     upload.set("purpose", "logo");
-    upload.set("file", new File([new Uint8Array([1, 2, 3])], "logo.png", { type: "image/png" }));
+    upload.set("file", new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "logo.png", { type: "image/png" }));
     const assetResponse = await SELF.fetch("http://local/api/assets", { method: "POST", headers: { Cookie: ownerCookie }, body: upload });
     expect(assetResponse.status).toBe(201);
     const assetId = (await json<{ data: { id: string } }>(assetResponse)).data.id;
@@ -208,7 +208,7 @@ describe("TP QR Worker API", () => {
     const project = await json<CreateProjectResponse>(created);
     const assetForm = new FormData();
     assetForm.set("purpose", "logo");
-    assetForm.set("file", new File([new Uint8Array([1, 2, 3])], "logo.png", { type: "image/png" }));
+    assetForm.set("file", new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "logo.png", { type: "image/png" }));
     const uploaded = await SELF.fetch("http://local/api/assets", { method: "POST", headers: { Cookie: cookie }, body: assetForm });
     expect(uploaded.status).toBe(201);
     const assetId = (await json<{ data: { id: string } }>(uploaded)).data.id;

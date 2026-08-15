@@ -13,7 +13,7 @@ async function authenticate(page: Page, email: string) {
 
 test.describe("active QR public flow", () => {
   test("creates and publishes text content through the API, then renders the public page", async ({ page }, testInfo) => {
-    const email = `browser-active-${testInfo.project.name}-${testInfo.workerIndex}@active.tpqr.test`;
+    const email = `browser-active-${Date.now()}-${testInfo.project.name}-${testInfo.workerIndex}@active.tpqr.test`;
     await authenticate(page, email);
     const createdResponse = await page.request.post("/api/codes", { data: { title: "Browser active text", content: { type: "text", title: "浏览器验收", text: "七类活码公共内容" } } });
     expect(createdResponse.status()).toBe(201);
@@ -33,7 +33,7 @@ test.describe("active QR public flow", () => {
 
   test("renders a published URL with safe-opening affordance on mobile", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    const email = `browser-url-${testInfo.project.name}-${testInfo.workerIndex}@active.tpqr.test`;
+    const email = `browser-url-${Date.now()}-${testInfo.project.name}-${testInfo.workerIndex}@active.tpqr.test`;
     await authenticate(page, email);
     const createdResponse = await page.request.post("/api/codes", { data: { title: "Mobile URL", content: { type: "url", title: "安全网址", url: "https://example.com/docs", description: "来源网站" } } });
     expect(createdResponse.status()).toBe(201);
@@ -48,7 +48,7 @@ test.describe("active QR public flow", () => {
   });
 
   test("keeps inactive or unknown slugs out of the public page", async ({ page }, testInfo) => {
-    const email = `browser-state-${testInfo.project.name}-${testInfo.workerIndex}@active.tpqr.test`;
+    const email = `browser-state-${Date.now()}-${testInfo.project.name}-${testInfo.workerIndex}@active.tpqr.test`;
     await authenticate(page, email);
     const createdResponse = await page.request.post("/api/codes", { data: { title: "Unpublished", content: { type: "text", title: "未发布", text: "draft" } } });
     expect(createdResponse.status()).toBe(201);

@@ -1,5 +1,23 @@
 import type { FormSchema, ProjectDraft } from "@shared/types/domain";
+import type { ActiveContent, PublicContentResponse, QrRenderConfig } from "@tpqr/domain";
 import { apiClient } from "@client/lib/api-client";
+
+export interface CodeSummary {
+  id: string;
+  ownerId?: string;
+  slug: string;
+  title: string;
+  contentType: ActiveContent["type"];
+  status: "active" | "paused" | "deleted";
+  revision: number;
+  content: ActiveContent;
+  render: QrRenderConfig;
+  publishedVersionId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CodeListResponse { items: CodeSummary[]; nextCursor: string | null; }
 
 export interface ProjectEntity {
   id: string;
@@ -71,6 +89,21 @@ export const api = {
     return apiClient.post<{ id: string; contentType: string; size: number; purpose: string }>("/api/assets", form);
   },
   deleteAsset: (assetId: string) => apiClient.delete<{ deleted: boolean }>(`/api/assets/${assetId}`),
+  codes: () => apiClient.get<CodeListResponse>("/api/codes"),
+  code: (codeId: string) => apiClient.get<CodeSummary>(`/api/codes/${encodeURIComponent(codeId)}`),
+  createCode: (title: string, content: ActiveContent, render?: Partial<QrRenderConfig>) => apiClient.post<CodeSummary>("/api/codes", { title, content, render }),
+  updateCode: (codeId: string, revision: number, data: { title?: string; content?: ActiveContent; render?: Partial<QrRenderConfig>; status?: "active" | "paused" }) => apiClient.patch<CodeSummary>(`/api/codes/${encodeURIComponent(codeId)}`, { ...data, revision }),
+  previewCode: (codeId: string) => apiClient.post<CodeSummary & { preview: true; previewToken: string }>(`/api/codes/${encodeURIComponent(codeId)}/preview`, {}),
+  publishCode: (codeId: string, revision: number) => apiClient.post<{ codeId: string; slug: string; version: { id: string; version: number; revision: number; publishedAt: string } }>(`/api/codes/${encodeURIComponent(codeId)}/publish`, { revision }),
+  codeVersions: (codeId: string) => apiClient.get<{ items: Array<{ id: string; codeId: string; version: number; revision: number; content: ActiveContent; render: QrRenderConfig; createdAt: string; publishedAt: string }> }>(`/api/codes/${encodeURIComponent(codeId)}/versions`),
+  codeAnalytics: (codeId: string, days = 30) => apiClient.get<{ items: Array<{ date: string; scans: number; views: number; clicks: number; downloads: number; plays: number }>; days: number }>(`/api/codes/${encodeURIComponent(codeId)}/analytics?days=${days}`),
+  uploadCodeAsset: (codeId: string, file: File) => {
+    const form = new FormData();
+    form.set("file", file);
+    return apiClient.post<{ id: string; contentType: string; size: number; name: string | null }>(`/api/codes/${encodeURIComponent(codeId)}/assets`, form);
+  },
+  publicCode: (slug: string) => apiClient.get<PublicContentResponse>(`/api/public/${encodeURIComponent(slug)}`),
+  publicEvent: (slug: string, event: "scan" | "view" | "click" | "download" | "play", idempotencyKey = crypto.randomUUID()) => apiClient.post<{ accepted: boolean; duplicate: boolean }>(`/api/public/${encodeURIComponent(slug)}/events`, { event, idempotencyKey }),
 };
 
 export function projectFormSchema(project: ProjectDraft): FormSchema | null {

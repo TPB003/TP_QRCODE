@@ -4,7 +4,7 @@ export interface SafeUrlResult { ok: boolean; url?: URL; reason?: string; }
 export function validateSafeUrl(input: string): SafeUrlResult {
   if (typeof input !== "string" || input.trim().length === 0) return { ok: false, reason: "URL_REQUIRED" };
   const value = input.trim();
-  if (/[\u0000-\u001f\u007f]/.test(value)) return { ok: false, reason: "URL_CONTROL_CHARACTER" };
+  if ([...value].some((character) => { const code = character.charCodeAt(0); return code <= 0x1f || code === 0x7f; })) return { ok: false, reason: "URL_CONTROL_CHARACTER" };
   let url: URL;
   try { url = new URL(value); } catch { return { ok: false, reason: "URL_INVALID" }; }
   if (url.protocol !== "http:" && url.protocol !== "https:") return { ok: false, reason: "URL_SCHEME_NOT_ALLOWED" };

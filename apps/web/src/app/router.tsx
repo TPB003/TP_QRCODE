@@ -23,24 +23,29 @@ export const router = createBrowserRouter([
     lazy: () => import("@client/routes/qr-editor-route"),
   },
   {
-    path: "/app/projects/:projectId/form",
+    path: "/app/codes/:projectId/qr",
     HydrateFallback: RouteFallback,
-    lazy: () => import("@client/routes/form-builder-route"),
+    lazy: () => import("@client/routes/qr-editor-route"),
   },
   {
-    path: "/app/projects/:projectId/batch",
+    path: "/app/codes/:projectId/analytics",
     HydrateFallback: RouteFallback,
-    lazy: () => import("@client/routes/batch-codes-route"),
+    lazy: () => import("@client/routes/code-analytics-route"),
   },
   {
-    path: "/app/projects/:projectId/submissions",
+    path: "/app/codes/:projectId/versions",
     HydrateFallback: RouteFallback,
-    lazy: () => import("@client/routes/submissions-route"),
+    lazy: () => import("@client/routes/code-versions-route"),
   },
   {
-    path: "/app/projects/:projectId/settings",
+    path: "/app/codes/:projectId/settings",
     HydrateFallback: RouteFallback,
-    lazy: () => import("@client/routes/settings-route"),
+    lazy: () => import("@client/routes/code-settings-route"),
+  },
+  {
+    path: "/decoder",
+    HydrateFallback: RouteFallback,
+    lazy: () => import("@client/routes/decoder-route"),
   },
   {
     path: "/s/:slug",

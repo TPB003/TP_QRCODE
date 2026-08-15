@@ -37,7 +37,15 @@ export const fileContentSchema = z.object({
 
 export const urlContentSchema = z.object({
   type: z.literal("url"),
-  url: z.string().trim().min(1).max(PRODUCT_CONTENT_LIMITS.urlCharacters),
+  url: z.string().trim().min(1).max(PRODUCT_CONTENT_LIMITS.urlCharacters).refine((value) => {
+    if ([...value].some((character) => { const code = character.charCodeAt(0); return code <= 0x1f || code === 0x7f; })) return false;
+    try {
+      const url = new URL(value);
+      return (url.protocol === "http:" || url.protocol === "https:") && !url.username && !url.password && Boolean(url.hostname) && !url.hostname.includes("..");
+    } catch {
+      return false;
+    }
+  }, "Only http(s) URLs without credentials are allowed"),
   title: z.string().trim().max(PRODUCT_CONTENT_LIMITS.titleCharacters).default(""),
   description: z.string().trim().max(500).default(""),
 });
@@ -50,7 +58,7 @@ export const contactContentSchema = z.object({
   title: z.string().trim().max(160).default(""),
   phone: z.string().trim().max(40).default(""),
   email: z.string().trim().email().or(z.literal("")).default(""),
-  website: z.string().trim().max(PRODUCT_CONTENT_LIMITS.urlCharacters).or(z.literal("")).default(""),
+  website: z.string().trim().max(PRODUCT_CONTENT_LIMITS.urlCharacters).refine((value) => value === "" || urlContentSchema.shape.url.safeParse(value).success, "Only safe http(s) URLs are allowed").default(""),
   address: z.string().trim().max(300).default(""),
   note: z.string().trim().max(500).default(""),
 });

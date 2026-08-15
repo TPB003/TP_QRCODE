@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, Download, Eye, Loader2, Save, Send, Share2 } from "lucide-react";
 import QRCodeStyling from "qr-code-styling";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import type { ActiveContent, QrRenderConfig } from "@tpqr/domain";
 import { buildPublicPayload, DEFAULT_QR_RENDER_CONFIG } from "@tpqr/qr";
 import { ProjectShell } from "@client/components/layout/project-shell";
 import { apiClient } from "@client/lib/api-client";
-import { ContentEditor, emptyContent } from "@client/features/content-editor/content-editor";
+import { ContentEditor } from "@client/features/content-editor/content-editor";
+import { emptyContent } from "@client/features/content-editor/content-editor-model";
 import "../qr-editor.css";
 
 type Code = { id: string; slug: string; title: string; contentType: ActiveContent["type"]; status: "active" | "draft" | "published" | "paused" | "deleted"; revision: number; content: ActiveContent; render: QrRenderConfig; publishedVersionId?: string | null; updatedAt?: string };
@@ -24,12 +25,35 @@ async function qrBlob(data: string, render: QrRenderConfig, format: "png" | "svg
   return blob instanceof Blob ? blob : new Blob([blob as BlobPart], { type: format === "svg" ? "image/svg+xml" : `image/${format === "jpg" ? "jpeg" : format}` });
 }
 function downloadBlob(blob: Blob, name: string) { const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-async function shareOrDownload(blob: Blob, name: string) { const file = new File([blob], name, { type: blob.type }); if (typeof navigator.share === "function" && (!navigator.canShare || navigator.canShare({ files: [file] }))) { try { await navigator.share({ files: [file], title: name }); return "shared" as const; } catch (error) { if (error instanceof DOMException && error.name === "AbortError") throw error; } } downloadBlob(blob, name); return "downloaded" as const; }
+async function shareOrDownload(blob: Blob, name: string) {
+  const file = new File([blob], name, { type: blob.type });
+  const mobile = typeof window !== "undefined" && (window.matchMedia("(max-width: 768px)").matches || navigator.maxTouchPoints > 0);
+  const canShareFile = mobile && typeof navigator.share === "function" && (!navigator.canShare || navigator.canShare({ files: [file] }));
+  if (canShareFile) {
+    try { await navigator.share({ files: [file], title: name }); return "shared" as const; }
+    catch (error) { if (error instanceof DOMException && error.name === "AbortError") throw error; }
+  }
+  downloadBlob(blob, name);
+  return "downloaded" as const;
+}
 
 export function QrEditorView() {
   const { projectId = "" } = useParams();
+  const [searchParams] = useSearchParams();
+  const requestedType = searchParams.get("type") as ActiveContent["type"] | null;
   const [code, setCode] = useState<Code | null>(null); const [content, setContent] = useState<ActiveContent>(emptyContent("text")); const [render, setRender] = useState<QrRenderConfig>(DEFAULT_QR_RENDER_CONFIG); const [title, setTitle] = useState("我的活码"); const [notice, setNotice] = useState(""); const [busy, setBusy] = useState(false); const [uploading, setUploading] = useState(false); const [format, setFormat] = useState<"png" | "svg" | "webp" | "jpg">("png");
-  useEffect(() => { let active = true; void loadCode(projectId).then((result) => { if (!active) return; setCode(result); setContent(result.content); setRender({ ...DEFAULT_QR_RENDER_CONFIG, ...result.render }); setTitle(result.title); }).catch((error) => active && setNotice(error instanceof Error ? error.message : "加载活码失败")); return () => { active = false; }; }, [projectId]);
+  useEffect(() => {
+    let active = true;
+    void loadCode(projectId).then((result) => {
+      if (!active) return;
+      const mediaType = requestedType && ["image", "video", "audio", "file"].includes(requestedType) ? requestedType : null;
+      setCode(result);
+      setContent(mediaType && result.content.type === "text" ? emptyContent(mediaType) : result.content);
+      setRender({ ...DEFAULT_QR_RENDER_CONFIG, ...result.render });
+      setTitle(result.title);
+    }).catch((error) => active && setNotice(error instanceof Error ? error.message : "加载活码失败"));
+    return () => { active = false; };
+  }, [projectId, requestedType]);
   const payload = useMemo(() => buildPublicPayload(code?.slug ?? "TPQRDEMO01"), [code?.slug]);
   async function handleUpload(file: File, purpose?: string) { if (!code) throw new Error("活码尚未加载"); setUploading(true); try { const id = await uploadAsset(code.id, file, purpose ?? content.type); setContent((current) => ({ ...current, assetId: id } as ActiveContent)); setNotice("资源已上传，请保存草稿"); return id; } catch (error) { setNotice(error instanceof Error ? error.message : "上传失败"); throw error; } finally { setUploading(false); } }
   async function saveDraft() { if (!code) return; setBusy(true); try { const updated = await saveCode(code.id, code.revision, { title, content, render }); setCode(updated); setNotice("草稿已保存"); } catch (error) { setNotice(error instanceof Error && (error as { code?: string }).code === "REVISION_CONFLICT" ? "内容已被其他窗口修改，请刷新后重试" : error instanceof Error ? error.message : "保存失败"); } finally { setBusy(false); } }

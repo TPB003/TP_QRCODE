@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type PropsWithChildren } from "react";
-import { BarChart3, ClipboardList, FileText, Layers3, QrCode, Settings } from "lucide-react";
+import { ArrowLeft, BarChart3, History, QrCode, Settings, ScanLine } from "lucide-react";
 import { Link, NavLink, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LogoMark } from "@client/components/ui/logo-mark";
 import { generatedAssets } from "@client/lib/assets";
@@ -33,12 +33,12 @@ export function ProjectShell({ children }: PropsWithChildren) {
   if (!authChecked) return <div className="route-loading" role="status">正在检查登录状态…</div>;
 
   const projectNavigation = [
-    { to: `/app/projects/${projectId}/qr`, label: "二维码编辑", icon: QrCode },
-    { to: `/app/projects/${projectId}/form`, label: "内容与表单", icon: FileText },
-    { to: `/app/projects/${projectId}/batch`, label: "批量二维码", icon: Layers3 },
-    { to: `/app/projects/${projectId}/submissions`, label: "提交记录", icon: ClipboardList },
-    { to: `/app/projects/${projectId}/submissions?tab=analytics`, label: "扫码统计", icon: BarChart3 },
-    { to: `/app/projects/${projectId}/settings`, label: "项目设置", icon: Settings },
+    { to: `/app/codes/${projectId}/qr`, label: "二维码编辑", icon: QrCode },
+    { to: `/app/codes/${projectId}/versions`, label: "版本记录", icon: History },
+    { to: `/app/codes/${projectId}/analytics`, label: "扫码统计", icon: BarChart3 },
+    { to: `/app/codes/${projectId}/settings`, label: "活码设置", icon: Settings },
+    { to: "/decoder", label: "解码器", icon: ScanLine },
+    { to: "/app", label: "返回工作台", icon: ArrowLeft },
   ];
 
   return (

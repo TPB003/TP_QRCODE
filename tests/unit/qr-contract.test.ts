@@ -28,7 +28,7 @@ describe("QR contracts", () => {
   });
   it("validates content without coupling to a renderer", () => {
     expect(validateActiveContent({ type: "text", text: "ok" }).success).toBe(true);
-    expect(validateActiveContent({ type: "url", url: "javascript:bad" }).success).toBe(true);
+    expect(validateActiveContent({ type: "url", url: "javascript:bad" }).success).toBe(false);
     expect(validateActiveContent({ type: "text", text: 123 }).success).toBe(false);
   });
 });

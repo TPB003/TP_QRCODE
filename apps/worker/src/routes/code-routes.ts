@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import {
-  ACTIVE_CONTENT_TYPES,
   activeContentSchema,
   type ActiveContent,
   type PublicContentResponse,
@@ -15,6 +14,7 @@ export const codeRoutes = new Hono<{ Bindings: Bindings }>();
 export const publicCodeRoutes = new Hono<{ Bindings: Bindings }>();
 
 const idSchema = z.string().uuid();
+const EMPTY_ASSET_ID = "00000000-0000-4000-8000-000000000000";
 const renderSchema = z.object({
   size: z.number().int().min(128).max(2048).default(512),
   margin: z.number().int().min(0).max(64).default(16),
@@ -24,7 +24,7 @@ const renderSchema = z.object({
   cornerSquareStyle: z.enum(["square", "dot", "extra-rounded"]).default("extra-rounded"),
   cornerDotStyle: z.enum(["square", "dot", "extra-rounded"]).default("dot"),
   logoAssetId: z.string().uuid().nullable().optional().default(null),
-  logoSize: z.number().int().min(0).max(40).optional(),
+  logoSize: z.number().int().min(0).max(100).optional(),
   errorCorrectionLevel: z.enum(["L", "M", "Q", "H"]).optional().default("M"),
 });
 
@@ -68,7 +68,7 @@ function referencedAssetIds(content: ActiveContent, render: QrRenderConfig): str
   if ("assetId" in content) ids.push(content.assetId);
   if (content.type === "video") ids.push(content.posterAssetId);
   if (content.type === "audio") ids.push(content.coverAssetId);
-  return ids.filter((id): id is string => Boolean(id));
+  return ids.filter((id): id is string => Boolean(id) && id !== EMPTY_ASSET_ID);
 }
 async function assertOwnedAssets(context: AppContext, content: ActiveContent, render: QrRenderConfig, ownerId: string): Promise<boolean> {
   const ids = referencedAssetIds(content, render);
@@ -148,6 +148,7 @@ codeRoutes.post("/codes/:codeId/publish", async (c) => {
   const row = await ownedCode(c, id.data, user.id); if (!row) return apiError(c, 404, "NOT_FOUND", "活码不存在");
   if (row.revision !== body.data.revision) return apiError(c, 409, "REVISION_CONFLICT", "草稿已被其他操作更新");
   const content = activeContentSchema.parse(jsonParse(row.draft_content_json, null)); const render = renderSchema.parse(jsonParse(row.draft_render_json, defaultRender()));
+  if ((content.type === "image" || content.type === "video" || content.type === "audio" || content.type === "file") && content.assetId === EMPTY_ASSET_ID) return apiError(c, 422, "UPLOAD_REJECTED", "请先上传内容文件再发布");
   if (!(await assertOwnedAssets(c, content, render, user.id))) return apiError(c, 422, "UPLOAD_REJECTED", "内容引用了无权限的资源");
   const previous = await c.env.DB.prepare("SELECT COALESCE(MAX(version), 0) AS version FROM qr_code_versions WHERE code_id = ?").bind(row.id).first<{ version: number }>();
   const version = Number(previous?.version ?? 0) + 1; const versionId = crypto.randomUUID(); const publishedAt = nowIso();
@@ -214,7 +215,10 @@ publicCodeRoutes.post("/:slug/events", async (c) => {
   const body = eventSchema.safeParse(await readJson(c)); if (!body.success) return apiError(c, 422, "VALIDATION_ERROR", "事件参数无效");
   const ip = c.req.header("CF-Connecting-IP") ?? "local"; if (!(await consumeRateLimit(c.env.DB, await hashValue(`event:${found.row.id}:${ip}`), 60, 60))) return apiError(c, 429, "RATE_LIMITED", "事件提交过于频繁");
   const occurred = body.data.occurredAt ?? nowIso(); const result = await c.env.DB.prepare("INSERT OR IGNORE INTO qr_access_events (id, code_id, version_id, event, idempotency_key, metadata_json, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), found.row.id, found.version.id, body.data.event, body.data.idempotencyKey, JSON.stringify(body.data.metadata ?? {}), occurred).run();
-  if (result.meta.changes) await incrementCodeAnalytics(c, found.row.id, body.data.event === "scan" ? "scans" : `${body.data.event}s` as "views" | "clicks" | "downloads" | "plays");
+  if (result.meta.changes) {
+    const field = body.data.event === "scan" ? "scans" : ({ view: "views", click: "clicks", download: "downloads", play: "plays" } as const)[body.data.event];
+    await incrementCodeAnalytics(c, found.row.id, field);
+  }
   return c.json({ data: { accepted: true, duplicate: !result.meta.changes } });
 });
 

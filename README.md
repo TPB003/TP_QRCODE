@@ -93,7 +93,7 @@ Production secrets belong in Cloudflare or `wrangler secret`, never in JSON.
 | --- | --- |
 | `ENVIRONMENT` | Worker environment (`development` locally) |
 | `APP_ORIGIN` | CORS and origin validation |
-| `AUTH_DELIVERY_MODE` | `dev` locally; production must use email |
+| `AUTH_DELIVERY_MODE` | `dev` locally; `resend` in production |
 | `AUTH_TEST_CODE` | local test code |
 | `AUTH_ALLOWED_EMAILS` | optional comma-separated allow-list |
 | `VITE_TURNSTILE_SITE_KEY` | production browser key |

@@ -8,7 +8,7 @@ const root = process.cwd();
 const output = path.join(root, "tmp", "fixtures");
 mkdirSync(output, { recursive: true });
 
-const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
 const files = {
   "sample-image.png": png,
   "sample-video.mp4": Buffer.from("000000186674797069736f6d00000200", "hex"),

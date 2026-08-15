@@ -80,7 +80,7 @@ a {
 .tp-status--teal i { background: var(--teal); }
 .tp-status--red i { background: var(--red); }
 .tp-status--muted i { background: var(--muted); }
-.tp-toast { position: fixed; right: 20px; bottom: 24px; z-index: 80; display: flex; max-width: min(420px, calc(100vw - 32px)); min-height: 48px; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 14px 12px 18px; border: 1px solid var(--hairline); background: var(--paper-bright); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.tp-toast { position: fixed; right: 20px; bottom: 24px; z-index: 80; display: flex; max-width: min(420px, calc(100vw - 32px)); min-height: 48px; align-items: center; gap: 16px; justify-content: space-between; padding: 12px 14px 12px 18px; border: 1px solid var(--hairline); background: var(--paper-bright); box-shadow: 0 12px 32px rgba(0,0,0,.18); pointer-events: none; }
 .tp-toast--success { border-left: 4px solid var(--teal); }
 .tp-toast--error { border-left: 4px solid var(--red); }
 .tp-toast button { display: inline-grid; width: 32px; height: 32px; place-items: center; border: 0; background: transparent; color: inherit; cursor: pointer; }

@@ -7,6 +7,7 @@
     "apps/web/vite.config.ts",
     "vitest.config.ts",
     "vitest.integration.config.ts",
+    "vitest.security.config.ts",
     "playwright.config.ts",
     "eslint.config.js"
   ],

@@ -19,6 +19,7 @@ assetRoutes.post("/assets", async (context) => {
   if (purpose === "logo" && !(ALLOWED_IMAGE_TYPES as readonly string[]).includes(file.type)) return apiError(context, 422, "UPLOAD_REJECTED", "Logo 仅支持图片");
   if (file.size > maxBytes) return apiError(context, 413, "UPLOAD_REJECTED", "文件超过大小限制");
   const bytes = await file.arrayBuffer();
+  if (!hasExpectedMagic(file.type, bytes)) return apiError(context, 422, "UPLOAD_REJECTED", "文件内容与 MIME 类型不匹配");
   const id = crypto.randomUUID();
   const objectKey = `users/${user.id}/${id}`;
   await context.env.ASSETS_BUCKET.put(objectKey, bytes, { httpMetadata: { contentType: file.type, contentDisposition: `inline; filename="${encodeURIComponent(file.name || id)}"` } });
@@ -29,7 +30,7 @@ assetRoutes.post("/assets", async (context) => {
 });
 
 function hasExpectedMagic(type: string, input: ArrayBuffer): boolean {
-  if (type === "text/plain") return true;
+  if (type === "text/plain" || type.startsWith("audio/")) return true;
   const bytes = new Uint8Array(input).subarray(0, 12);
   const starts = (values: number[]) => values.every((value, index) => bytes[index] === value);
   if (type === "image/png") return starts([0x89, 0x50, 0x4e, 0x47]);
@@ -39,7 +40,6 @@ function hasExpectedMagic(type: string, input: ArrayBuffer): boolean {
   if (type === "application/pdf") return starts([0x25, 0x50, 0x44, 0x46]);
   if (type === "video/mp4") return bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
   if (type === "video/webm") return starts([0x1a, 0x45, 0xdf, 0xa3]);
-  if (type.startsWith("audio/")) return true;
   return false;
 }
 
