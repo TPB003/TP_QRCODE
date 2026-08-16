@@ -77,7 +77,6 @@ export function PublicContentFrame({ data, onEvent }: Props) {
   const content = code.content;
   const copy = useCopy();
   const [error, setError] = useState("");
-  const [expandedImage, setExpandedImage] = useState<string | null>(null);
   const imageOnly = content.type === "image";
   const title = imageOnly ? "" : contentTitle(content) || code.title;
   const pageClass = `public-content-page public-content-page--${content.type}`;
@@ -102,14 +101,8 @@ export function PublicContentFrame({ data, onEvent }: Props) {
   const body = (() => {
     if (content.type === "image") {
       const url = assetUrl(data, content.assetId);
-      return <figure className="public-media public-media--image-only">
-        <button type="button" className="public-media__image-button" onClick={() => setExpandedImage(url)} aria-label="放大图片">
-          <img src={url} alt={content.alt || title || "二维码图片"} onError={() => setError("图片加载失败")} />
-        </button>
-        <div className="public-media__actions">
-          <button type="button" className="button button--secondary" onClick={() => setExpandedImage(url)}>查看大图</button>
-          <a className="button button--primary" href={assetDownloadUrl(data, content.assetId)} download={`tp-qr-image.${assetMeta(data, content.assetId)?.contentType.split("/")[1] ?? "jpg"}`} onClick={() => onEvent?.("download")}><Download />保存图片</a>
-        </div>
+      return <figure className="public-media public-media--image-only" aria-label="图片内容">
+        <img className="public-image-only" src={url} alt={content.alt || "图片内容"} onError={() => setError("图片加载失败")} />
       </figure>;
     }
     if (content.type === "video") return <div className="public-media">
@@ -148,6 +141,5 @@ export function PublicContentFrame({ data, onEvent }: Props) {
       {!imageOnly && title ? <div className="public-content-card__title"><h1>{title}</h1></div> : null}
       {error ? <p className="public-error" role="alert">{error}</p> : body}
     </article>
-    {expandedImage ? <div className="public-lightbox" role="dialog" aria-modal="true" aria-label="图片预览" onClick={() => setExpandedImage(null)}><button type="button" aria-label="关闭图片预览" onClick={() => setExpandedImage(null)}>关闭</button><img src={expandedImage} alt={title || "图片预览"} onClick={(event) => event.stopPropagation()} /></div> : null}
   </main>;
 }

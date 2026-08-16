@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, Download, Eye, Loader2, Save, Send, Share2 } from "lucide-react";
+import { Check, Download, Eye, Loader2, Palette, Save, Send, Share2, Upload } from "lucide-react";
 import QRCodeStyling from "qr-code-styling";
 import { useParams, useSearchParams } from "react-router-dom";
 import type { ActiveContent, PublicContentResponse, QrRenderConfig } from "@tpqr/domain";
@@ -10,6 +10,7 @@ import { ContentEditor } from "@client/features/content-editor/content-editor";
 import { emptyContent } from "@client/features/content-editor/content-editor-model";
 import "@client/features/public-content/public-content.css";
 import { PublicContentFrame } from "@client/features/public-content/public-content-frame";
+import calibrationBackdrop from "../../../../../../assets/open/qr-workbench-calibration.png";
 import "../qr-editor.css";
 import "../qr-editor-overrides.css";
 
@@ -21,8 +22,36 @@ async function loadCode(id: string) { return apiClient.get<CodeResponse>(`/api/c
 async function saveCode(id: string, revision: number, body: { content: ActiveContent; render: QrRenderConfig; title: string }) { return apiClient.patch<Code>(`/api/codes/${encodeURIComponent(id)}`, { ...body, revision }); }
 async function publishCode(id: string, revision: number) { return apiClient.post<{ codeId: string; slug: string; version: { id: string; version: number; revision: number; publishedAt: string } }>(`/api/codes/${encodeURIComponent(id)}/publish`, { revision }); }
 
+function logoUrl(render: QrRenderConfig): string | undefined {
+  return render.logoAssetId ? `/api/assets/${encodeURIComponent(render.logoAssetId)}` : undefined;
+}
+
+function qrOptions(data: string, render: QrRenderConfig, type: "canvas" | "svg") {
+  const image = logoUrl(render);
+  return {
+    type,
+    width: render.size,
+    height: render.size,
+    data,
+    margin: render.margin,
+    image,
+    imageOptions: {
+      saveAsBlob: true,
+      hideBackgroundDots: Boolean(image),
+      imageSize: image ? Math.min(0.34, Math.max(0.12, (render.logoSize ?? 56) / Math.max(render.size, 1))) : 0.2,
+      margin: image ? 6 : 0,
+      crossOrigin: "anonymous",
+    },
+    dotsOptions: { type: render.dotStyle, color: render.foreground },
+    cornersSquareOptions: { type: render.cornerSquareStyle, color: render.foreground },
+    cornersDotOptions: { type: render.cornerDotStyle, color: render.foreground },
+    backgroundOptions: { color: render.background },
+    qrOptions: { errorCorrectionLevel: render.errorCorrectionLevel },
+  };
+}
+
 async function qrBlob(data: string, render: QrRenderConfig, format: "png" | "svg" | "webp" | "jpg"): Promise<Blob> {
-  const qr = new QRCodeStyling({ type: format === "svg" ? "svg" : "canvas", width: render.size, height: render.size, data, margin: render.margin, dotsOptions: { type: render.dotStyle, color: render.foreground }, cornersSquareOptions: { type: render.cornerSquareStyle, color: render.foreground }, cornersDotOptions: { type: render.cornerDotStyle, color: render.foreground }, backgroundOptions: { color: render.background }, qrOptions: { errorCorrectionLevel: render.errorCorrectionLevel } });
+  const qr = new QRCodeStyling(qrOptions(data, render, format === "svg" ? "svg" : "canvas"));
   const blob = await qr.getRawData(format === "jpg" ? "jpeg" : format);
   if (!blob) throw new Error("二维码生成失败");
   return blob instanceof Blob ? blob : new Blob([blob as BlobPart], { type: format === "svg" ? "image/svg+xml" : `image/${format === "jpg" ? "jpeg" : format}` });
@@ -59,6 +88,19 @@ export function QrEditorView() {
   }, [projectId, requestedType]);
   const payload = useMemo(() => buildPublicPayload(code?.slug ?? "TPQRDEMO01"), [code?.slug]);
   async function handleUpload(file: File, purpose?: string) { if (!code) throw new Error("活码尚未加载"); setUploading(true); try { const id = await uploadAsset(code.id, file, purpose ?? content.type); setContent((current) => ({ ...current, assetId: id } as ActiveContent)); setFieldErrors((current) => { const next = { ...current }; delete next["content.assetId"]; delete next.assetId; return next; }); setNotice("资源已上传，请保存草稿"); return id; } catch (error) { setNotice(error instanceof Error ? error.message : "上传失败"); throw error; } finally { setUploading(false); } }
+  async function handleLogoUpload(file: File) {
+    if (!code) throw new Error("活码尚未加载");
+    setUploading(true);
+    try {
+      const id = await uploadAsset(code.id, file, "logo");
+      setRender((current) => ({ ...current, logoAssetId: id, errorCorrectionLevel: "H" }));
+      setNotice("中心 Logo 已上传，请保存样式");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Logo 上传失败");
+    } finally {
+      setUploading(false);
+    }
+  }
   function handleSaveError(error: unknown, fallback: string) {
     if (error instanceof ApiClientError && error.fieldErrors) setFieldErrors(error.fieldErrors);
     else setFieldErrors({});
@@ -89,13 +131,47 @@ export function QrEditorView() {
   }, [code, content, render, title]);
   const isMobileShare = typeof window !== "undefined" && (window.matchMedia("(max-width: 768px)").matches || navigator.maxTouchPoints > 0);
   if (!code && !notice) return <ProjectShell><main className="qr-editor-loading"><Loader2 className="spin" />加载活码…</main></ProjectShell>;
-  return <ProjectShell><main className="tp-qr-editor">
+  return <ProjectShell><main className="tp-qr-editor" style={{ backgroundImage: `linear-gradient(rgba(8, 11, 13, .94), rgba(8, 11, 13, .94)), url(${calibrationBackdrop})` }}>
+    <div className="tp-qr-editor__workspace">
     <header className="tp-qr-editor__header"><div><span className="index-label">07 / ACTIVE QR</span><h1>活码工作台</h1><p>内容可更新，二维码保持不变。</p></div><div className="tp-qr-editor__actions"><button type="button" className="button button--secondary" disabled={!code} onClick={() => setPreviewOpen(true)}><Eye />预览</button><button type="button" className="button button--secondary" disabled={busy || !code} onClick={() => void saveDraft()}><Save />保存草稿</button><button type="button" className="button button--teal" disabled={busy || !code} onClick={() => void publish()}><Send />发布</button></div></header>
     {Object.keys(fieldErrors).length > 0 ? <div className="tp-field-errors" role="alert"><strong>请检查以下字段：</strong>{Object.entries(fieldErrors).map(([key, messages]) => <span key={key}>{key.replace(/^content\./, "")}：{messages.join("、")}</span>)}</div> : null}
     {code ? <div className="tp-qr-editor__grid"><section><label className="tp-title-field"><span>项目名称</span><input value={title} onChange={(e) => setTitle(e.target.value)} /><small>{fieldErrors.title?.[0]}</small></label><ContentEditor value={content} onChange={setContent} onUpload={handleUpload} uploading={uploading} fieldErrors={fieldErrors} /></section><section className="tp-qr-preview"><div className="tp-qr-paper"><QRCodeCanvas data={payload} render={render} /></div><span className="tp-status tp-status--teal"><i />{code.publishedVersionId ? "已发布" : "草稿"} · revision {code.revision}</span><code>{payload}</code><div className="tp-download-row"><select aria-label="下载格式" value={format} onChange={(e) => setFormat(e.target.value as typeof format)}><option value="png">PNG</option><option value="svg">SVG</option><option value="webp">WEBP</option><option value="jpg">JPG</option></select><button type="button" className="button button--primary" disabled={busy} onClick={() => void exportQr()}>{isMobileShare ? <Share2 /> : <Download />}{isMobileShare ? "分享 / 下载" : "下载"}</button></div></section></div> : null}
+    {code ? <StylePanel render={render} onChange={setRender} onLogoUpload={handleLogoUpload} onClearLogo={() => setRender((current) => ({ ...current, logoAssetId: null }))} uploading={uploading} /> : null}
+    {code && render.showFrame && render.frameText ? <div className="tp-qr-frame-preview" aria-label="边框说明预览"><span>{render.frameText}</span></div> : null}
+    </div>
     {notice ? <p className="tp-toast tp-toast--success" role="status"><Check />{notice}</p> : null}
     {previewOpen && previewData ? <div className="tp-preview-modal" role="dialog" aria-modal="true" aria-label="草稿预览"><button type="button" className="tp-preview-modal__close button button--secondary" onClick={() => setPreviewOpen(false)}>关闭预览</button><PublicContentFrame data={previewData} /></div> : null}
   </main></ProjectShell>;
 }
 
-function QRCodeCanvas({ data, render }: { data: string; render: QrRenderConfig }) { const [url, setUrl] = useState<string>(""); useEffect(() => { let disposed = false; const qr = new QRCodeStyling({ type: "canvas", width: render.size, height: render.size, data, margin: render.margin, dotsOptions: { type: render.dotStyle, color: render.foreground }, cornersSquareOptions: { type: render.cornerSquareStyle, color: render.foreground }, cornersDotOptions: { type: render.cornerDotStyle, color: render.foreground }, backgroundOptions: { color: render.background } }); void qr.getRawData("png").then((blob) => { if (!disposed && blob) { const next = URL.createObjectURL(blob as Blob); setUrl((old) => { if (old) URL.revokeObjectURL(old); return next; }); } }); return () => { disposed = true; }; }, [data, render]); return url ? <img src={url} alt="活码二维码预览" width={render.size} height={render.size} /> : <div className="tp-qr-placeholder" aria-label="二维码生成中" />; }
+const DOT_STYLE_OPTIONS: Array<{ value: QrRenderConfig["dotStyle"]; label: string }> = [
+  { value: "rounded", label: "圆润" },
+  { value: "square", label: "方块" },
+  { value: "dots", label: "圆点" },
+  { value: "classy", label: "经典" },
+  { value: "classy-rounded", label: "经典圆角" },
+  { value: "extra-rounded", label: "超圆角" },
+];
+const CORNER_STYLE_OPTIONS: Array<{ value: QrRenderConfig["cornerSquareStyle"]; label: string }> = [
+  { value: "extra-rounded", label: "超圆角" },
+  { value: "square", label: "方角" },
+  { value: "dot", label: "圆点" },
+];
+
+function StylePanel({ render, onChange, onLogoUpload, onClearLogo, uploading }: { render: QrRenderConfig; onChange: (next: QrRenderConfig) => void; onLogoUpload: (file: File) => Promise<void>; onClearLogo: () => void; uploading: boolean }) {
+  const update = <K extends keyof QrRenderConfig>(key: K, value: QrRenderConfig[K]) => onChange({ ...render, [key]: value });
+  const setColor = (key: "foreground" | "background", value: string) => { if (/^#[0-9a-f]{6}$/i.test(value)) update(key, value.toUpperCase()); };
+  return <aside className="tp-style-panel" id="qr-style-panel" aria-label="二维码样式设置">
+    <header className="tp-style-panel__header"><div><span className="index-label">02 / VISUAL PARAMETERS</span><h2>视觉参数</h2></div><Palette size={20} aria-hidden="true" /></header>
+    <fieldset className="tp-style-group"><legend>码点</legend><div className="tp-style-options tp-style-options--dots">{DOT_STYLE_OPTIONS.map((option) => <button type="button" key={option.value} className={render.dotStyle === option.value ? "is-selected" : ""} aria-pressed={render.dotStyle === option.value} onClick={() => update("dotStyle", option.value)}><span className={`tp-style-swatch tp-style-swatch--${option.value}`} aria-hidden="true" />{option.label}</button>)}</div></fieldset>
+    <fieldset className="tp-style-group"><legend>定位角</legend><div className="tp-style-options">{CORNER_STYLE_OPTIONS.map((option) => <button type="button" key={option.value} className={render.cornerSquareStyle === option.value ? "is-selected" : ""} aria-pressed={render.cornerSquareStyle === option.value} onClick={() => onChange({ ...render, cornerSquareStyle: option.value, cornerDotStyle: option.value === "dot" ? "dot" : option.value })}><span className={`tp-corner-swatch tp-corner-swatch--${option.value}`} aria-hidden="true" />{option.label}</button>)}</div></fieldset>
+    <div className="tp-style-color-row"><label htmlFor="qr-foreground">前景色</label><div><input id="qr-foreground" aria-label="前景色" type="color" value={render.foreground} onChange={(event) => setColor("foreground", event.target.value)} /><input className="tp-color-hex" aria-label="前景色 Hex" value={render.foreground} maxLength={7} onChange={(event) => setColor("foreground", event.target.value)} /></div></div>
+    <div className="tp-style-color-row"><label htmlFor="qr-background">背景色</label><div><input id="qr-background" aria-label="背景色" type="color" value={render.background} onChange={(event) => setColor("background", event.target.value)} /><input className="tp-color-hex" aria-label="背景色 Hex" value={render.background} maxLength={7} onChange={(event) => setColor("background", event.target.value)} /></div></div>
+    <fieldset className="tp-style-group tp-style-group--logo"><legend>中心 Logo</legend><div className="tp-style-logo-row"><span className={`tp-style-state ${render.logoAssetId ? "is-active" : ""}`}>{render.logoAssetId ? "已启用" : "未添加"}</span><label className="tp-upload-button"><input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; event.currentTarget.value = ""; if (file) void onLogoUpload(file); }} /><Upload size={15} />{uploading ? "上传中…" : render.logoAssetId ? "更换 Logo" : "上传 Logo"}</label></div>{render.logoAssetId ? <div className="tp-logo-controls"><label htmlFor="qr-logo-size">Logo 大小 <span className="tp-range-value">{render.logoSize ?? 56}px</span></label><input id="qr-logo-size" aria-label="Logo 大小" type="range" min="32" max="128" step="4" value={render.logoSize ?? 56} onChange={(event) => update("logoSize", Number(event.target.value))} /><button type="button" className="tp-text-button" onClick={onClearLogo}>移除 Logo</button></div> : <p className="tp-style-help">建议使用透明 PNG，上传后二维码会自动切换为高纠错级别。</p>}</fieldset>
+    <fieldset className="tp-style-group"><legend>边框与说明</legend><label className="tp-style-check"><input type="checkbox" checked={Boolean(render.showFrame)} onChange={(event) => update("showFrame", event.target.checked)} /><span>显示边框说明</span></label><input className="tp-frame-input" aria-label="边框说明文字" disabled={!render.showFrame} maxLength={40} placeholder="例如：扫码打开内容" value={render.frameText ?? ""} onChange={(event) => update("frameText", event.target.value)} /></fieldset>
+    <fieldset className="tp-style-group tp-style-group--compact"><label htmlFor="qr-error-correction">纠错级别</label><select id="qr-error-correction" aria-label="纠错级别" value={render.errorCorrectionLevel ?? "M"} onChange={(event) => update("errorCorrectionLevel", event.target.value as QrRenderConfig["errorCorrectionLevel"])}><option value="L">L · 低</option><option value="M">M · 标准</option><option value="Q">Q · 高</option><option value="H">H · 最高（推荐 Logo）</option></select></fieldset>
+    <fieldset className="tp-style-group tp-style-group--sliders"><label htmlFor="qr-size">二维码尺寸 <span className="tp-range-value">{render.size}px</span></label><input id="qr-size" aria-label="二维码尺寸" type="range" min="256" max="1024" step="16" value={render.size} onChange={(event) => update("size", Number(event.target.value))} /><label htmlFor="qr-margin">安全边距 <span className="tp-range-value">{render.margin}px</span></label><input id="qr-margin" aria-label="安全边距" type="range" min="0" max="48" step="2" value={render.margin} onChange={(event) => update("margin", Number(event.target.value))} /></fieldset>
+  </aside>;
+}
+
+function QRCodeCanvas({ data, render }: { data: string; render: QrRenderConfig }) { const [url, setUrl] = useState<string>(""); useEffect(() => { let disposed = false; const qr = new QRCodeStyling(qrOptions(data, render, "canvas")); void qr.getRawData("png").then((blob) => { if (!disposed && blob) { const next = URL.createObjectURL(blob as Blob); setUrl((old) => { if (old) URL.revokeObjectURL(old); return next; }); } }); return () => { disposed = true; }; }, [data, render]); return url ? <img src={url} alt="活码二维码预览" width={render.size} height={render.size} /> : <div className="tp-qr-placeholder" aria-label="二维码生成中" />; }

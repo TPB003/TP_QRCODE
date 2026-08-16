@@ -60,6 +60,10 @@ export interface PublicResponse {
 }
 
 export const api = {
+  authProviders: () => apiClient.get<{ google: boolean; github: boolean }>("/api/auth/providers"),
+  oauthStart: (provider: "google" | "github", returnTo = "/app") => {
+    window.location.assign(`/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo)}`);
+  },
   requestCode: (email: string) => apiClient.post<{ accepted: boolean; expiresAt: string; testCode?: string }>("/api/auth/request-code", { email }),
   verifyCode: (email: string, code: string) => apiClient.post<{ id: string; email: string; createdAt: string }>("/api/auth/verify-code", { email, code }),
   logout: () => apiClient.post<{ loggedOut: boolean }>("/api/auth/logout"),

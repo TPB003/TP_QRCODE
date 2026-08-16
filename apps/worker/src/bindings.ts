@@ -10,6 +10,11 @@ export interface Bindings {
   TURNSTILE_SITE_KEY?: string;
   RESEND_API_KEY?: string;
   RESEND_FROM_EMAIL?: string;
+  AUTH_GOOGLE_CLIENT_ID?: string;
+  AUTH_GOOGLE_CLIENT_SECRET?: string;
+  AUTH_GITHUB_CLIENT_ID?: string;
+  AUTH_GITHUB_CLIENT_SECRET?: string;
+  AUTH_OAUTH_CALLBACK_ORIGIN?: string;
   TURNSTILE_SECRET_KEY?: string;
   SESSION_COOKIE_SECRET?: string;
 }

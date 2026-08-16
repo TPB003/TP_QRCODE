@@ -11,6 +11,8 @@ export const DEFAULT_QR_RENDER_CONFIG: QrRenderConfig = {
   cornerDotStyle: "dot",
   logoAssetId: null,
   logoSize: 56,
+  frameText: "",
+  showFrame: false,
   errorCorrectionLevel: "M",
 };
 

@@ -1,48 +1,117 @@
-# Optional Cloudflare deployment
+# Cloudflare deployment and `tpqrcode.shop`
 
-Cloudflare deployment is deliberately not required for local development or
-for the open-source test gate. A free `workers.dev` subdomain can be enabled
-from the Cloudflare dashboard without buying a custom domain; availability and
-the chosen subdomain are controlled by Cloudflare. A custom domain is optional
-and may have registrar costs.
+Cloudflare deployment is separate from the local test gate. The public
+repository contains only placeholder configuration; real D1/R2 IDs, OAuth
+credentials, Resend keys, and private deployment files stay outside Git or in
+the ignored `tmp/` directory.
 
-## Preparation
+## Delegate the domain to Cloudflare
 
-1. Sign in to Cloudflare and enable a Workers account and the desired
-   `workers.dev` subdomain.
-2. Create a D1 database and an R2 bucket in your own account.
-3. Copy `infra/cloudflare/wrangler.production.example.jsonc` to a private local
-   config, replacing placeholders with your own IDs and names.
-4. Verify a sender identity in Resend, then configure the production mail
-   adapter. `RESEND_FROM_EMAIL` must be the verified sender address (or an
-   address on a verified Resend domain):
+1. In Cloudflare, choose **Websites → Add a domain**, enter `tpqrcode.shop`,
+   and choose the Free plan.
+2. Copy the two Nameservers Cloudflare displays.
+3. In the West Digital domain console, replace the current Nameservers with
+   the Cloudflare pair. Disable DNSSEC at the registrar first if it is active.
+4. Preserve any required MX, TXT, SPF, and DKIM records before changing the
+   delegation.
+5. Wait for the zone to become **Active**, then verify with:
 
    ```powershell
-   npx wrangler secret put RESEND_API_KEY --config <private-production-config>
+   Resolve-DnsName tpqrcode.shop -Type NS
    ```
 
-   Set `AUTH_DELIVERY_MODE=resend` and `RESEND_FROM_EMAIL` in the private
-   production configuration. Never put the API key in JSON, `.env`, or Git.
-   Production must not set `AUTH_TEST_CODE`; fixed codes are only for local
-   `AUTH_DELIVERY_MODE=dev` tests.
-5. Set `APP_ORIGIN` and the Vite Turnstile site key to the final HTTPS origin.
+The domain remains registered at West Digital; only DNS authority moves to
+Cloudflare. Propagation can take time and is controlled by the registrar and
+DNS caches.
 
-## Deploy
+## Attach the Worker custom domain
 
-```powershell
-npx wrangler whoami
-npx wrangler d1 migrations apply <private-d1-binding> --remote --config <private-production-config>
-npm run build
-npx wrangler deploy --config <private-production-config>
+Open **Workers & Pages → tp-qr → Settings → Domains & Routes → Add Custom
+Domain**, then enter `tpqrcode.shop`. Cloudflare provisions the certificate
+and DNS mapping. Do not create a root CNAME manually before adding the custom
+domain.
+
+The private production configuration must contain:
+
+```jsonc
+{
+  "routes": [{ "pattern": "tpqrcode.shop", "custom_domain": true }],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "APP_ORIGIN": "https://tpqrcode.shop",
+    "AUTH_OAUTH_CALLBACK_ORIGIN": "https://tpqrcode.shop",
+    "AUTH_DELIVERY_MODE": "resend"
+  }
+}
 ```
 
-Do not deploy production with `apps/worker/wrangler.jsonc`: that file is the
-local development configuration and intentionally contains a fixed test code.
-Keep the private production config outside the tracked repository, or under
-the ignored `tmp/` directory, and run the deployment preflight before each
-release. The public template contains placeholders only.
+Copy the public template to an ignored file and replace all placeholders:
 
-Run the complete browser and security suite against the deployed origin before
-calling the deployment production-ready. Keep the R2 bucket private and verify
-that direct bucket URLs are not reachable. This repository intentionally does
-not claim that a remote D1, R2, domain, or Worker has already been created.
+```powershell
+Copy-Item infra/cloudflare/wrangler.production.example.jsonc tmp/wrangler.production.jsonc
+npx wrangler whoami
+npm run tpqr -- deploy --environment production --config tmp/wrangler.production.jsonc --confirm-production
+```
+
+Because Wrangler resolves paths relative to the config file, adjust the
+copied private file's paths to `../apps/worker/src/index.ts`, `../dist`, and
+`../infra/cloudflare/migrations` when it lives under `tmp/`. Alternatively,
+keep a private copy under `infra/cloudflare/` with the template's original
+relative paths, but never commit that copy.
+
+Set production secrets through Wrangler, never in JSON or Git:
+
+```powershell
+npx wrangler secret put RESEND_API_KEY --config tmp/wrangler.production.jsonc
+npx wrangler secret put AUTH_GOOGLE_CLIENT_SECRET --config tmp/wrangler.production.jsonc
+npx wrangler secret put AUTH_GITHUB_CLIENT_SECRET --config tmp/wrangler.production.jsonc
+```
+
+`RESEND_FROM_EMAIL` must be a verified Resend sender. Production must not set `AUTH_TEST_CODE` or use `AUTH_DELIVERY_MODE=dev`.
+
+The production mail adapter is explicitly selected with:
+
+```text
+AUTH_DELIVERY_MODE=resend
+```
+
+## Google and GitHub callbacks
+
+Configure these exact callback URLs in the provider consoles:
+
+```text
+https://tpqrcode.shop/api/auth/google/callback
+https://tpqrcode.shop/api/auth/github/callback
+```
+
+For local development, use a separate provider application with:
+
+```text
+http://127.0.0.1:8787/api/auth/google/callback
+http://127.0.0.1:8787/api/auth/github/callback
+```
+
+Google requires `openid email profile` and a verified email. GitHub should use
+a GitHub App user authorization flow with only basic profile and email access;
+never request repository write permissions for login.
+
+## Smoke test and rollback
+
+```powershell
+Invoke-WebRequest https://tpqrcode.shop/api/health
+npm run tpqr -- domain inspect tpqrcode.shop
+```
+
+Check the homepage, `/api/health`, an existing `/s/<slug>` page, email login,
+Google login, GitHub login, and a real media download. Keep the
+`workers.dev` URL available as a rollback path. If the custom domain fails,
+remove the custom-domain route or redeploy the previous Worker version; do
+not delete D1/R2 data while investigating.
+
+## Mainland China note
+
+Cloudflare Free/global routing may be reachable from mainland China but does
+not provide a stability guarantee. Cloudflare China Network is a separate
+commercial product with eligibility, ICP, and review requirements. A domestic
+CDN/hosting route and ICP should be planned separately if stable mainland
+availability becomes a hard requirement.

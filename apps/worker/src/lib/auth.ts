@@ -5,7 +5,7 @@ import type { AppContext } from "@worker/lib/http";
 
 export const SESSION_COOKIE = "tp_session";
 const CODE_TTL_SECONDS = 10 * 60;
-const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+export const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const MAX_CODE_ATTEMPTS = 5;
 
 interface AuthCodeRow {
@@ -109,12 +109,17 @@ export async function verifyCode(env: Bindings, email: string, code: string): Pr
     .first<AuthUser>();
   if (!user) throw new Error("AUTH_USER_CREATE_FAILED");
 
+  const sessionId = await createSession(env, user.id, timestamp);
+  return { user, sessionId };
+}
+
+export async function createSession(env: Bindings, userId: string, createdAt = nowIso()): Promise<string> {
   const sessionId = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + SESSION_TTL_SECONDS * 1000).toISOString();
   await env.DB.prepare("INSERT INTO sessions (id, user_id, expires_at, created_at, revoked_at) VALUES (?, ?, ?, ?, NULL)")
-    .bind(sessionId, user.id, expiresAt, timestamp)
+    .bind(sessionId, userId, expiresAt, createdAt)
     .run();
-  return { user, sessionId };
+  return sessionId;
 }
 
 export async function currentUser(context: AppContext): Promise<AuthUser | null> {

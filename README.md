@@ -96,6 +96,9 @@ Production secrets belong in Cloudflare or `wrangler secret`, never in JSON.
 | `AUTH_DELIVERY_MODE` | `dev` locally; `resend` in production |
 | `AUTH_TEST_CODE` | local test code |
 | `AUTH_ALLOWED_EMAILS` | optional comma-separated allow-list |
+| `AUTH_GOOGLE_CLIENT_ID`, `AUTH_GITHUB_CLIENT_ID` | public OAuth client IDs |
+| `AUTH_GOOGLE_CLIENT_SECRET`, `AUTH_GITHUB_CLIENT_SECRET` | Cloudflare Secrets for OAuth callbacks |
+| `AUTH_OAUTH_CALLBACK_ORIGIN` | callback origin (`http://127.0.0.1:8787` locally; `https://tpqrcode.shop` in production) |
 | `VITE_TURNSTILE_SITE_KEY` | production browser key |
 | `TURNSTILE_SECRET_KEY` | production Worker secret |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | production email adapter |
@@ -108,6 +111,44 @@ the local `apps/worker/wrangler.jsonc` to deploy production; it intentionally
 contains development bindings and the fixed local test code. See
 [`docs/deployment-cloudflare.md`](docs/deployment-cloudflare.md) for the full
 workers.dev/D1/R2 procedure.
+
+## Google and GitHub login
+
+The login page keeps email OTP and can also use Google or GitHub. Configure
+these exact production callbacks in the provider consoles:
+
+```text
+https://tpqrcode.shop/api/auth/google/callback
+https://tpqrcode.shop/api/auth/github/callback
+```
+
+Google uses `openid email profile`. GitHub uses a GitHub App user-authorization
+flow with basic profile and verified-email access only. A verified provider
+email is automatically linked to an existing TP QR account; provider tokens
+are never stored. Local development should use separate provider applications
+with `http://127.0.0.1:8787/api/auth/{provider}/callback` callbacks. See
+[`docs/deployment-cloudflare.md`](docs/deployment-cloudflare.md).
+
+## Maintainer CLI
+
+The repository includes a dependency-free Node 22 maintainer CLI. It does not
+change registrar DNS or print secrets:
+
+```powershell
+npm run tpqr -- doctor
+npm run tpqr -- local setup
+npm run tpqr -- check
+npm run tpqr -- domain inspect tpqrcode.shop
+npm run tpqr -- oauth check
+```
+
+Deploy only with a private configuration under ignored `tmp/`:
+
+```powershell
+npm run tpqr -- deploy --environment staging --config tmp/wrangler.staging.jsonc --dry-run
+```
+
+See [`docs/cli.md`](docs/cli.md) for production preflight and release checks.
 
 ## Testing and release gate
 
@@ -147,14 +188,19 @@ npm run preview
 
 The generated `dist/` directory is local output and must not be committed.
 
-## Optional Cloudflare deployment
+## Cloudflare custom domain
 
-Cloudflare deployment, custom domains, remote D1, and remote R2 are not local
-acceptance requirements. After signing in, a free `workers.dev` subdomain may
-be enabled when Cloudflare offers one; a custom top-level domain is optional
-and may cost money. Copy `infra/cloudflare/wrangler.production.example.jsonc`,
-replace its placeholders with your own account resources, configure secrets,
-and follow [`docs/deployment-cloudflare.md`](docs/deployment-cloudflare.md).
+The domain `tpqrcode.shop` is registered at West Digital. Cloudflare Free is
+used for DNS, HTTPS, and the Worker custom domain; the domain is not
+transferred to Cloudflare. First delegate the domain's Nameservers to
+Cloudflare, then attach `tpqrcode.shop` under the Worker **Domains & Routes**
+page. Cloudflare creates the certificate and DNS mapping. Follow
+[`docs/deployment-cloudflare.md`](docs/deployment-cloudflare.md) for the exact
+steps and private configuration flow.
+
+Cloudflare Free/global routing may be unstable on some mainland-China
+networks. A stable mainland route would require a separate domestic/ICP or
+eligible Cloudflare China Network plan and is not promised by this project.
 
 This repository never claims that a remote resource, domain, account ID, or
 production dataset already exists.

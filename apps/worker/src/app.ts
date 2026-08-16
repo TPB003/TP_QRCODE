@@ -19,7 +19,7 @@ function mutableAssetResponse(response: Response): Response {
 }
 
 function localSpaFallback(): Response {
-  return new Response("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><title>TP QR</title></head><body><div id=\"root\"></div></body></html>", {
+  return new Response("<!doctype html><html lang=\"zh-CN\"><head><meta charset=\"UTF-8\"><title>TPQRCODE</title></head><body><div id=\"root\"></div></body></html>", {
     status: 200,
     headers: { "Content-Type": "text/html; charset=UTF-8" },
   });

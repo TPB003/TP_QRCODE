@@ -9,7 +9,7 @@ import tseslint from "typescript-eslint";
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "archive", "output", "tmp", "coverage", "**/.wrangler/**", "scripts/**/*.mjs", "eslint.config.js"] },
+  { ignores: ["**/dist/**", "**/node_modules/**", "archive", "output", "tmp", "coverage", "**/.wrangler/**", "scripts/**/*.mjs", "packages/cli/**/*.mjs", "eslint.config.js"] },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {

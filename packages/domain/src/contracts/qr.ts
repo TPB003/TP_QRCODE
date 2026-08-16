@@ -15,6 +15,8 @@ export interface QrRenderConfig {
   cornerDotStyle: QrCornerStyle;
   logoAssetId?: string | null;
   logoSize?: number;
+  frameText?: string;
+  showFrame?: boolean;
   errorCorrectionLevel?: "L" | "M" | "Q" | "H";
 }
 
