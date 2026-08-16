@@ -103,7 +103,7 @@ export const api = {
     return apiClient.post<{ id: string; contentType: string; size: number; name: string | null }>(`/api/codes/${encodeURIComponent(codeId)}/assets`, form);
   },
   publicCode: (slug: string) => apiClient.get<PublicContentResponse>(`/api/public/${encodeURIComponent(slug)}`),
-  publicEvent: (slug: string, event: "scan" | "view" | "click" | "download" | "play", idempotencyKey = crypto.randomUUID()) => apiClient.post<{ accepted: boolean; duplicate: boolean }>(`/api/public/${encodeURIComponent(slug)}/events`, { event, idempotencyKey }),
+  publicEvent: (slug: string, event: "scan" | "view" | "click" | "download" | "play", idempotencyKey: string = crypto.randomUUID()) => apiClient.post<{ accepted: boolean; duplicate: boolean }>(`/api/public/${encodeURIComponent(slug)}/events`, { event, idempotencyKey }),
 };
 
 export function projectFormSchema(project: ProjectDraft): FormSchema | null {

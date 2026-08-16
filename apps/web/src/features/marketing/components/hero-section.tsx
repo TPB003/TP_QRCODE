@@ -18,7 +18,7 @@ const contentTabs: Array<{ icon: LucideIcon; id: ContentType; label: string }> =
 
 const defaultValues: Record<ContentType, string> = {
   image: "品牌手册.jpg", video: "产品介绍.mp4", audio: "品牌声音.mp3", file: "产品资料.pdf",
-  url: "/s/demo", contact: "TP QR\nhello@example.com", text: "TP QR 让每一次扫码都指向最新内容。",
+  url: "https://example.com/your-link", contact: "TP QR\nhello@example.com", text: "TP QR 让每一次扫码都指向最新内容。",
 };
 const fileTypes = new Set<ContentType>(["image", "video", "audio", "file"]);
 
@@ -42,9 +42,9 @@ export function HeroSection() {
         <aside className="live-generator__meta">
           <p className="live-generator__title"><span>活码生成器</span> / LIVE</p>
           <dl>
-            <div><dt>会话 ID</dt><dd>QR-20260810-A9F7</dd></div>
-            <div><dt>创建时间</dt><dd>2026-08-10 14:28</dd></div>
-            <div><dt>状态</dt><dd><StatusDot tone="blue" />草稿已保存</dd></div>
+            <div><dt>工作区</dt><dd>示例内容</dd></div>
+            <div><dt>当前类型</dt><dd>{contentTabs.find((tab) => tab.id === activeType)?.label}</dd></div>
+            <div><dt>状态</dt><dd><StatusDot tone="blue" />实时预览</dd></div>
           </dl>
         </aside>
         <div className="live-generator__editor">
@@ -70,9 +70,9 @@ export function HeroSection() {
       <div className="hero-narrative">
         <div className="hero-narrative__glyph" aria-hidden="true">QR</div>
         <div className="hero-narrative__versions">
-          <ArchiveCard title="01 / 草稿内容" trailing="□"><dl><div><dt>内容版本</dt><dd>v3.2.1</dd></div><div><dt>最后修改</dt><dd>14:21</dd></div><div><dt>修改者</dt><dd>你</dd></div></dl><p><StatusDot tone="blue" />草稿已保存</p></ArchiveCard>
+          <ArchiveCard title="01 / 草稿内容" trailing="□"><dl><div><dt>内容版本</dt><dd>草稿</dd></div><div><dt>更新方式</dt><dd>随时编辑</dd></div><div><dt>修改者</dt><dd>你</dd></div></dl><p><StatusDot tone="blue" />保存后可预览</p></ArchiveCard>
           <span className="version-connector" aria-hidden="true"><ArrowRight /></span>
-          <ArchiveCard title="02 / 发布结果" accent="red" trailing="□"><dl><div><dt>发布版本</dt><dd>v1.0.0</dd></div><div><dt>发布时间</dt><dd>14:28</dd></div><div><dt>状态</dt><dd>正常</dd></div></dl><p><StatusDot tone="teal" />当前已发布</p></ArchiveCard>
+          <ArchiveCard title="02 / 发布结果" accent="red" trailing="□"><dl><div><dt>发布版本</dt><dd>不可变快照</dd></div><div><dt>访问方式</dt><dd>扫码或分享</dd></div><div><dt>状态</dt><dd>按需发布</dd></div></dl><p><StatusDot tone="teal" />发布后保持链接不变</p></ArchiveCard>
         </div>
         <div className="hero-narrative__copy"><h1>一个二维码，<br />内容随时更新</h1><p>图片、视频、音频、文件、网址、名片和文字，都能在同一个活码里持续更新。</p><div className="hero-narrative__actions"><Link className="button button--primary" to="/login">免费创建活码 <ArrowRight size={20} /></Link><a href="#templates">查看七类内容</a></div></div>
       </div>

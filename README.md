@@ -82,7 +82,7 @@ npm run db:seed:local
 
 Wrangler local bindings are simulations and do not contact production. The
 development mail adapter accepts the configured test code (`123456`) and never
-sends real email.
+sends real email. Never reuse this adapter or the fixed code in production.
 
 ## Environment variables
 
@@ -99,6 +99,15 @@ Production secrets belong in Cloudflare or `wrangler secret`, never in JSON.
 | `VITE_TURNSTILE_SITE_KEY` | production browser key |
 | `TURNSTILE_SECRET_KEY` | production Worker secret |
 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` | production email adapter |
+
+For production authentication, set `AUTH_DELIVERY_MODE=resend`, verify
+`RESEND_FROM_EMAIL` in Resend, and store the provider key as a Cloudflare
+Secret. Run `npx wrangler secret put RESEND_API_KEY` against a private
+production config. Do not set `AUTH_TEST_CODE` in production, and do not use
+the local `apps/worker/wrangler.jsonc` to deploy production; it intentionally
+contains development bindings and the fixed local test code. See
+[`docs/deployment-cloudflare.md`](docs/deployment-cloudflare.md) for the full
+workers.dev/D1/R2 procedure.
 
 ## Testing and release gate
 
