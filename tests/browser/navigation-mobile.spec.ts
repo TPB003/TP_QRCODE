@@ -17,7 +17,6 @@ test.describe("响应式导航", () => {
   test("桌面端显示解码器入口", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
-    await expect(page.getByRole("link", { name: "解码器" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "解码器", exact: true })).toBeVisible();
   });
 });
-

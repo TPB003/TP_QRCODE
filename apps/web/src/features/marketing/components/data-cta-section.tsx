@@ -1,8 +1,7 @@
-import { ArrowRight, BarChart3, Check, Download, ShieldCheck } from "lucide-react";
+import { ArrowRight, BarChart3, Check, Eye, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import { QrSpecimen } from "@client/components/ui/qr-specimen";
 import { analyticsSeries } from "../model/marketing-data";
-import { StatusDot } from "./visual-primitives";
 
 function toPolyline(values: number[], width: number, height: number, maxValue: number): string {
   return values
@@ -14,12 +13,11 @@ function toPolyline(values: number[], width: number, height: number, maxValue: n
     .join(" ");
 }
 
-const submissions = [
-  ["QR-7F3A", "提交成功", "2026-08-10 14:32:18"],
-  ["QR-2C91", "提交成功", "2026-08-10 13:11:07"],
-  ["QR-9B44", "提交成功", "2026-08-10 09:47:55"],
-  ["QR-6E21", "提交成功", "2026-08-09 21:03:24"],
-  ["QR-1D7F", "提交失败", "2026-08-09 18:22:10"],
+const demoContentRows = [
+  ["图片", "公开访问", "保存到设备"],
+  ["视频", "公开访问", "播放或下载"],
+  ["名片", "公开访问", "保存联系人"],
+  ["文字", "公开访问", "复制或分享"],
 ];
 
 export function DataCtaSection() {
@@ -30,45 +28,45 @@ export function DataCtaSection() {
     <section className="data-cta-section" id="data">
       <div className="data-sheet paper-texture">
         <div className="analytics-chart">
-          <header><span><i className="legend legend--blue" />扫码次数</span><span><i className="legend legend--teal" />提交数量</span><strong>最近 30 天</strong></header>
-          <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="最近 30 天扫码和提交趋势">
+          <header><span><i className="legend legend--blue" />扫码次数</span><span><i className="legend legend--teal" />查看次数</span><strong>视觉示例 · 不计入真实统计</strong></header>
+          <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} role="img" aria-label="活码扫码和查看趋势视觉示例">
             <g className="chart-grid">
               {[0, 1, 2, 3, 4].map((lineIndex) => <line key={lineIndex} x1="0" x2={chartWidth} y1={lineIndex * 62.5} y2={lineIndex * 62.5} />)}
             </g>
             <polyline className="chart-line chart-line--blue" points={toPolyline(analyticsSeries.scans, chartWidth, chartHeight, 200)} />
-            <polyline className="chart-line chart-line--teal" points={toPolyline(analyticsSeries.submissions, chartWidth, chartHeight, 200)} />
+            <polyline className="chart-line chart-line--teal" points={toPolyline(analyticsSeries.views, chartWidth, chartHeight, 200)} />
           </svg>
         </div>
 
-        <div className="submission-table">
-          <div className="submission-table__row submission-table__head"><span>二维码</span><span>提交结果</span><span>提交时间</span></div>
-          {submissions.map(([code, status, timestamp]) => (
-            <div className={`submission-table__row ${status === "提交失败" ? "is-error" : ""}`} key={code}>
-              <code>{code}</code><span><StatusDot tone={status === "提交失败" ? "red" : "teal"} />{status}</span><time>{timestamp}</time>
+        <div className="submission-table" aria-label="内容操作示例">
+          <div className="submission-table__row submission-table__head"><span>内容类型</span><span>访问状态</span><span>扫码后操作</span></div>
+          {demoContentRows.map(([type, status, action]) => (
+            <div className="submission-table__row" key={type}>
+              <code>{type}</code><span>{status}</span><time>{action}</time>
             </div>
           ))}
         </div>
 
         <aside className="data-dossier">
-          <QrSpecimen data="/s/QR-7F3A" size={130} />
+          <QrSpecimen data="TP QR · example" size={130} />
           <dl>
-            <div><dt>二维码</dt><dd>QR-7F3A</dd></div>
-            <div><dt>来源</dt><dd>产品包装 A 批次</dd></div>
-            <div><dt>页面</dt><dd>/feedback</dd></div>
-            <div><dt>状态</dt><dd>正常</dd></div>
+            <div><dt>示例内容</dt><dd>七类活码</dd></div>
+            <div><dt>内容更新</dt><dd>链接保持不变</dd></div>
+            <div><dt>公共页面</dt><dd>自适应布局</dd></div>
+            <div><dt>统计方式</dt><dd>匿名事件</dd></div>
           </dl>
-          <span className="status-seal">正常</span>
+          <span className="status-seal">示例</span>
         </aside>
       </div>
 
       <div className="data-cta-section__content">
         <span className="data-cta-section__display" aria-hidden="true">SCAN<small>/30D</small></span>
         <div className="data-cta-section__copy">
-          <h2>每一次扫描，都留下可用的反馈</h2>
-          <p>查看提交记录、最近 30 天趋势，并随时导出 CSV。</p>
+          <h2>每一次扫描，都能回到最新内容</h2>
+          <p>发布后链接保持不变，内容可以持续更新，并在后台查看匿名访问趋势。</p>
           <div className="data-cta-section__secondary">
-            <button type="button"><Download />导出 CSV</button>
-            <button type="button"><BarChart3 />查看扫码统计</button>
+            <Link to="/app?view=analytics"><BarChart3 />查看扫码统计</Link>
+            <Link to="/decoder"><Eye />打开解码器</Link>
           </div>
           <Link className="data-cta-section__primary" to="/login">免费创建动态二维码 <ArrowRight /></Link>
         </div>

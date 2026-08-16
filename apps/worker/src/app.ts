@@ -34,7 +34,7 @@ const apiCors = createMiddleware<{ Bindings: Bindings }>(async (context, next) =
       context.header("Access-Control-Allow-Origin", allowedOrigin);
       context.header("Access-Control-Allow-Credentials", "true");
     }
-    context.header("Access-Control-Allow-Headers", "Content-Type, X-Revision, X-Idempotency-Key");
+    context.header("Access-Control-Allow-Headers", "Content-Type, X-Revision, X-Idempotency-Key, X-Event-Id");
     context.header("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
     context.header("Access-Control-Max-Age", "86400");
     context.header("Vary", "Origin");

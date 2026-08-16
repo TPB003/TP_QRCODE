@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, FileAudio, FileImage, FileText, FileVideo, Globe2, Plus, QrCode, Search, UserRound } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "@client/components/layout/app-shell";
 import { QrSpecimen } from "@client/components/ui/qr-specimen";
 import { api } from "@client/lib/api";
 import type { CodeSummary } from "@client/lib/api";
 import type { ActiveContent, ActiveContentType } from "@tpqr/domain";
+import { emptyContent } from "@client/features/content-editor/content-editor-model";
 import "../dashboard.css";
+import "../dashboard-overrides.css";
 
 type CodeType = ActiveContentType;
 type Filter = "全部" | "已发布" | "草稿" | "已暂停";
@@ -33,8 +35,8 @@ function initialContent(type: CodeType): ActiveContent {
   if (type === "url") return { type, url: `${window.location.origin}/`, title: "", description: "" };
   if (type === "contact") return { type, firstName: "", lastName: "", organization: "TP QR", title: "", phone: "", email: "", website: "", address: "", note: "" };
   if (type === "text") return { type, title: "", text: "在编辑器中完善这张活码的内容。" };
-  // Media content needs an owned R2 asset. Start with a valid text draft and carry the requested type in the editor URL.
-  return { type: "text", title: `新的${typeLabels[type]}活码`, text: `请在编辑器中上传${typeLabels[type]}文件。` };
+  // Keep the requested type in the code record; the editor replaces the placeholder asset after upload.
+  return { ...emptyContent(type), title: `新的${typeLabels[type]}活码` };
 }
 
 async function readAnalytics(codeId: string): Promise<number[]> {
@@ -49,6 +51,8 @@ async function readAnalytics(codeId: string): Promise<number[]> {
 }
 
 export function DashboardView() {
+  const [searchParams] = useSearchParams();
+  const view = searchParams.get("view") === "analytics" ? "analytics" : searchParams.get("view") === "codes" ? "codes" : "overview";
   const [filter, setFilter] = useState<Filter>("全部");
   const [search, setSearch] = useState("");
   const [codes, setCodes] = useState<CodeSummary[]>([]);
@@ -97,7 +101,7 @@ export function DashboardView() {
   return <AppShell>
     <section className="dashboard-view">
       <div className="dashboard-view__heading">
-        <h1>ACTIVE<br />CODES</h1>
+        <h1>{view === "analytics" ? <>SCAN<br />DATA</> : view === "codes" ? <>MY<br />CODES</> : <>ACTIVE<br />CODES</>}</h1>
         <div className="dashboard-view__actions">
           <button type="button" onClick={() => setCreating(true)}><Plus />新建活码</button>
           <Link className="dashboard-decoder-link" to="/decoder"><QrCode />解码二维码</Link>
@@ -108,10 +112,12 @@ export function DashboardView() {
         </div>
       </div>
 
-      <article className="dashboard-trend paper-panel">
+      {view !== "codes" ? <article className="dashboard-trend paper-panel">
         <header><h2>最近 30 天</h2><span>活码扫描次数</span></header>
         <svg viewBox="0 0 560 230" role="img" aria-label="最近 30 天扫描趋势">{[0, 1, 2, 3].map((lineIndex) => <line key={lineIndex} x1="0" x2="560" y1={lineIndex * 65 + 15} y2={lineIndex * 65 + 15} />)}<polyline points={trendPoints(trend)} /></svg>
-      </article>
+      </article> : null}
+
+      {view === "analytics" ? <article className="dashboard-analytics paper-panel" aria-label="扫码统计明细"><header><h2>按活码统计</h2><span>最近 30 天累计</span></header>{visibleCodes.map((code) => <div className="dashboard-analytics__row" key={code.id}><span>{code.title}</span><strong>{scanTotals[code.id] ?? 0}</strong><small>次扫码</small></div>)}{visibleCodes.length === 0 ? <p className="dashboard-table__empty">暂无统计数据</p> : null}</article> : null}
 
       <div className="dashboard-table paper-panel">
         <div className="dashboard-table__row dashboard-table__head"><span>活码</span><span>类型</span><span>状态</span><span>最近更新</span><span>扫码次数</span></div>

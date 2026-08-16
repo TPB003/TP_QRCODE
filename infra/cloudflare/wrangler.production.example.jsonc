@@ -28,6 +28,7 @@
     "ENVIRONMENT": "production",
     "APP_ORIGIN": "https://replace-with-your-domain",
     "AUTH_DELIVERY_MODE": "resend",
-    "AUTH_ALLOWED_EMAILS": "*"
+    "AUTH_ALLOWED_EMAILS": "*",
+    "RESEND_FROM_EMAIL": "replace-with-verified-sender@example.com"
   }
 }

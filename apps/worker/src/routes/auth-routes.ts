@@ -10,7 +10,7 @@ authRoutes.post("/request-code", async (context) => {
   const body = await readJson<unknown>(context);
   const parsed = requestCodeSchema.safeParse(body);
   if (!parsed.success) return apiError(context, 422, "VALIDATION_ERROR", "邮箱地址无效", { email: ["请输入有效邮箱地址"] });
-  if (context.env.AUTH_DELIVERY_MODE !== "dev" && !(await consumeRateLimit(context.env.DB, `auth:${parsed.data.email.toLowerCase()}`, 5, 60 * 60))) return apiError(context, 429, "RATE_LIMITED", "验证码请求过于频繁，请稍后再试");
+  if (!isDevAuth(context.env) && !(await consumeRateLimit(context.env.DB, `auth:${parsed.data.email.toLowerCase()}`, 5, 60 * 60))) return apiError(context, 429, "RATE_LIMITED", "验证码请求过于频繁，请稍后再试");
   try {
     const result = await issueCode(context.env, parsed.data.email);
     return context.json({
@@ -24,7 +24,7 @@ authRoutes.post("/request-code", async (context) => {
     if (error instanceof Error && error.message === "AUTH_EMAIL_NOT_ALLOWED") {
       return apiError(context, 403, "FORBIDDEN", "该邮箱不在内部验收名单中");
     }
-    if (error instanceof Error && ["AUTH_DELIVERY_NOT_CONFIGURED", "AUTH_DELIVERY_FAILED"].includes(error.message)) {
+    if (error instanceof Error && ["AUTH_DELIVERY_NOT_CONFIGURED", "AUTH_DELIVERY_FAILED", "AUTH_PRODUCTION_CONFIG_INVALID"].includes(error.message)) {
       return apiError(context, 503, "AUTH_DELIVERY_UNAVAILABLE", "验证码服务暂不可用，请联系管理员");
     }
     throw error;

@@ -41,10 +41,19 @@ export async function issueCode(env: Bindings, email: string): Promise<{ code: s
     throw new Error("AUTH_EMAIL_NOT_ALLOWED");
   }
 
-  const code = env.AUTH_TEST_CODE?.match(/^\d{6}$/)?.[0] ?? String(Math.floor(100000 + Math.random() * 900000));
+  // Production must always use the real delivery adapter. In particular,
+  // setting AUTH_DELIVERY_MODE=dev in a production binding must never enable
+  // the fixed test code or return it to a caller.
+  if (env.ENVIRONMENT === "production" && env.AUTH_DELIVERY_MODE !== "resend") {
+    throw new Error("AUTH_PRODUCTION_CONFIG_INVALID");
+  }
+  const developmentAuth = isDevAuth(env);
+  const code = developmentAuth && env.AUTH_TEST_CODE?.match(/^\d{6}$/)?.[0]
+    ? env.AUTH_TEST_CODE
+    : String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   const createdAt = nowIso();
   const expiresAt = new Date(Date.now() + CODE_TTL_SECONDS * 1000).toISOString();
-  if (!isDevAuth(env)) {
+  if (!developmentAuth) {
     if (!env.RESEND_API_KEY || !env.RESEND_FROM_EMAIL) throw new Error("AUTH_DELIVERY_NOT_CONFIGURED");
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -140,5 +149,5 @@ export function attachSessionCookie(context: AppContext, sessionId: string): voi
 }
 
 export function isDevAuth(env: Bindings): boolean {
-  return env.AUTH_DELIVERY_MODE === "dev" || env.ENVIRONMENT === "test";
+  return env.ENVIRONMENT !== "production" && (env.AUTH_DELIVERY_MODE === "dev" || env.ENVIRONMENT === "test");
 }

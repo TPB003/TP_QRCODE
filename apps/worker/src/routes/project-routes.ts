@@ -10,6 +10,21 @@ import { templateList, templateSchema } from "@worker/lib/templates";
 
 export const projectRoutes = new Hono<{ Bindings: Bindings }>();
 
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, child]) => `${JSON.stringify(key)}:${canonicalJson(child)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return canonicalJson(left) === canonicalJson(right);
+}
+
 const projectIdParamSchema = z.object({ projectId: z.string().uuid() });
 const submissionParamSchema = z.object({ projectId: z.string().uuid(), submissionId: z.string().uuid() });
 const submissionAssetParamSchema = submissionParamSchema.extend({ assetId: z.string().uuid() });
@@ -126,16 +141,24 @@ projectRoutes.patch("/projects/:projectId", async (context) => {
   if (!row) return apiError(context, 404, "NOT_FOUND", "项目不存在");
   if (row.revision !== parsed.data.revision) return apiError(context, 409, "REVISION_CONFLICT", "项目已被其他修改更新");
   const current = rowToProject(row);
-  const next = {
+  const candidate = {
     ...current,
     name: parsed.data.name ?? current.name,
     content: parsed.data.content ?? current.content,
     visualStyle: parsed.data.visualStyle ?? current.visualStyle,
     status: parsed.data.status ?? current.status,
+    revision: current.revision,
+    updatedAt: current.updatedAt,
+  } satisfies ProjectDraft;
+  const candidateValidated = (await import("@shared/schemas/project")).projectDraftSchema.parse(candidate);
+  if (candidateValidated.name === current.name && candidateValidated.status === current.status && sameValue(candidateValidated.content, current.content) && sameValue(candidateValidated.visualStyle, current.visualStyle)) {
+    return context.json({ data: current });
+  }
+  const validated = (await import("@shared/schemas/project")).projectDraftSchema.parse({
+    ...candidateValidated,
     revision: current.revision + 1,
     updatedAt: nowIso(),
-  } satisfies ProjectDraft;
-  const validated = (await import("@shared/schemas/project")).projectDraftSchema.parse(next);
+  });
   if (!(await hasOnlyOwnedAssets(context, validated, user.id))) return apiError(context, 422, "VALIDATION_ERROR", "项目引用了无权限访问的资源");
   await context.env.DB.prepare("UPDATE projects SET name = ?, status = ?, revision = ?, draft_content_json = ?, visual_style_json = ?, updated_at = ? WHERE id = ? AND owner_id = ? AND revision = ?")
     .bind(validated.name, validated.status, validated.revision, JSON.stringify(validated.content), JSON.stringify(validated.visualStyle), validated.updatedAt, row.id, user.id, row.revision)
