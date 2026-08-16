@@ -108,4 +108,28 @@ test.describe("second-pass product regressions", () => {
       expect(text, `homepage is missing active type: ${activeType}`).toContain(activeType);
     }
   });
+
+  test("public scan does not show a branded loading card while content is pending", async ({ page }) => {
+    let releaseResponse!: () => void;
+    const responsePending = new Promise<void>((resolve) => { releaseResponse = resolve; });
+    await page.route("**/api/public/loading-screen-regression", async (route) => {
+      await responsePending;
+      await route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ error: { code: "NOT_FOUND", message: "not found" } }),
+      });
+    });
+
+    await page.goto("/s/loading-screen-regression");
+    const loadingPage = page.locator(".public-content-page--loading");
+    await expect(loadingPage).toBeVisible({ timeout: 20000 });
+    await expect(loadingPage).toHaveText("");
+    await expect(page.locator(".public-content-card")).toHaveCount(0);
+    await expect(page.getByText("正在打开活码", { exact: false })).toHaveCount(0);
+
+    releaseResponse();
+    await expect(page.getByRole("alert")).toBeVisible({ timeout: 20000 });
+    await page.unroute("**/api/public/loading-screen-regression");
+  });
 });
