@@ -1,0 +1,15 @@
+name: Bug report
+description: Report a reproducible problem
+title: "[bug] "
+labels: [bug]
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+      required: true

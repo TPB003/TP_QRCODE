@@ -1,0 +1,7 @@
+.dashboard-analytics { grid-column: 1 / -1; padding: 28px; }
+.dashboard-analytics header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.dashboard-analytics h2 { margin: 0; }
+.dashboard-analytics header span { color: var(--muted); }
+.dashboard-analytics__row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: baseline; min-height: 58px; padding: 0 4px; border-bottom: 1px dashed var(--hairline); }
+.dashboard-analytics__row strong { color: var(--cobalt); font-size: 22px; }
+.dashboard-analytics__row small { color: var(--muted); }

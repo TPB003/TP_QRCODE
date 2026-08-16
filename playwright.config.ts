@@ -2,6 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/browser",
+  // Cloudflare's local Worker and the Vite graph can both cold-start on the
+  // first browser flow. Keep assertions strict, but give that first request
+  // enough time to finish on a clean machine.
+  timeout: 60_000,
+  retries: 1,
   workers: 1,
   outputDir: "tmp/test-results",
   reporter: [["list"], ["html", { outputFolder: "tmp/playwright-report", open: "never" }]],
@@ -12,7 +17,7 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run dev",
+    command: "node scripts/start-test-servers.mjs",
     url: "http://127.0.0.1:5173",
     reuseExistingServer: true,
     timeout: 120_000,

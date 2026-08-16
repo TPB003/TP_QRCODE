@@ -19,7 +19,7 @@ export const marketingQrStyles: MarketingQrStyle[] = [
 
 export const analyticsSeries = {
   scans: [89, 92, 128, 110, 141, 171, 120, 137, 140, 91, 85, 135, 125, 99, 112, 130, 174, 160, 132, 141, 115, 128],
-  submissions: [28, 56, 42, 63, 51, 50, 80, 75, 56, 40, 35, 61, 49, 67, 50, 60, 52, 60, 49, 72],
+  views: [28, 56, 42, 63, 51, 50, 80, 75, 56, 40, 35, 61, 49, 67, 50, 60, 52, 60, 49, 72],
 };
 
 export const businessTemplates = ["图片", "视频", "音频", "文件", "网址", "名片", "文字"];

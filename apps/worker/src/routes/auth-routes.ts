@@ -2,15 +2,53 @@ import { Hono } from "hono";
 import { requestCodeSchema, verifyCodeSchema } from "@shared/schemas/auth";
 import type { Bindings } from "@worker/bindings";
 import { attachSessionCookie, currentUser, isDevAuth, issueCode, revokeSession, verifyCode } from "@worker/lib/auth";
-import { apiError, consumeRateLimit, readJson } from "@worker/lib/http";
+import { completeOAuth, createAuthorizationUrl, enabledProviders, OAuthError } from "@worker/lib/oauth";
+import { apiError, consumeRateLimit, readJson, type AppContext } from "@worker/lib/http";
 
 export const authRoutes = new Hono<{ Bindings: Bindings }>();
+
+function oauthFailure(context: AppContext, code: string): Response {
+  const safeCode = ["AUTH_PROVIDER_DISABLED", "AUTH_OAUTH_STATE_INVALID", "AUTH_PROVIDER_EMAIL_UNVERIFIED", "AUTH_OAUTH_CONFIG_INVALID"].includes(code)
+    ? code
+    : "AUTH_OAUTH_FAILED";
+  return context.redirect(`${context.env.APP_ORIGIN}/login?oauth_error=${encodeURIComponent(safeCode)}`);
+}
+
+authRoutes.get("/providers", (context) => context.json({ data: enabledProviders(context.env) }));
+
+for (const provider of ["google", "github"] as const) {
+  authRoutes.get(`/${provider}/start`, async (context) => {
+    try {
+      const source = context.req.header("CF-Connecting-IP") ?? "unknown";
+      if (!(await consumeRateLimit(context.env.DB, `oauth:start:${provider}:${source}`, 20, 10 * 60))) {
+        return oauthFailure(context, "AUTH_OAUTH_RATE_LIMITED");
+      }
+      const url = await createAuthorizationUrl(context.env, provider, context.req.query("returnTo"));
+      return context.redirect(url);
+    } catch (error) {
+      return oauthFailure(context, error instanceof OAuthError ? error.code : "AUTH_OAUTH_FAILED");
+    }
+  });
+  authRoutes.get(`/${provider}/callback`, async (context) => {
+    try {
+      const source = context.req.header("CF-Connecting-IP") ?? "unknown";
+      if (!(await consumeRateLimit(context.env.DB, `oauth:callback:${provider}:${source}`, 20, 10 * 60))) {
+        return oauthFailure(context, "AUTH_OAUTH_RATE_LIMITED");
+      }
+      const result = await completeOAuth(context.env, provider, context.req.query("code") ?? "", context.req.query("state") ?? "");
+      attachSessionCookie(context, result.sessionId);
+      return context.redirect(new URL(result.returnTo, context.env.APP_ORIGIN).toString());
+    } catch (error) {
+      return oauthFailure(context, error instanceof OAuthError ? error.code : "AUTH_OAUTH_FAILED");
+    }
+  });
+}
 
 authRoutes.post("/request-code", async (context) => {
   const body = await readJson<unknown>(context);
   const parsed = requestCodeSchema.safeParse(body);
   if (!parsed.success) return apiError(context, 422, "VALIDATION_ERROR", "邮箱地址无效", { email: ["请输入有效邮箱地址"] });
-  if (context.env.AUTH_DELIVERY_MODE !== "dev" && !(await consumeRateLimit(context.env.DB, `auth:${parsed.data.email.toLowerCase()}`, 5, 60 * 60))) return apiError(context, 429, "RATE_LIMITED", "验证码请求过于频繁，请稍后再试");
+  if (!isDevAuth(context.env) && !(await consumeRateLimit(context.env.DB, `auth:${parsed.data.email.toLowerCase()}`, 5, 60 * 60))) return apiError(context, 429, "RATE_LIMITED", "验证码请求过于频繁，请稍后再试");
   try {
     const result = await issueCode(context.env, parsed.data.email);
     return context.json({
@@ -24,7 +62,7 @@ authRoutes.post("/request-code", async (context) => {
     if (error instanceof Error && error.message === "AUTH_EMAIL_NOT_ALLOWED") {
       return apiError(context, 403, "FORBIDDEN", "该邮箱不在内部验收名单中");
     }
-    if (error instanceof Error && ["AUTH_DELIVERY_NOT_CONFIGURED", "AUTH_DELIVERY_FAILED"].includes(error.message)) {
+    if (error instanceof Error && ["AUTH_DELIVERY_NOT_CONFIGURED", "AUTH_DELIVERY_FAILED", "AUTH_PRODUCTION_CONFIG_INVALID"].includes(error.message)) {
       return apiError(context, 503, "AUTH_DELIVERY_UNAVAILABLE", "验证码服务暂不可用，请联系管理员");
     }
     throw error;

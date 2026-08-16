@@ -30,7 +30,7 @@ assetRoutes.post("/assets", async (context) => {
 });
 
 function hasExpectedMagic(type: string, input: ArrayBuffer): boolean {
-  if (type === "text/plain" || type.startsWith("audio/")) return true;
+  if (type === "text/plain") return true;
   const bytes = new Uint8Array(input).subarray(0, 12);
   const starts = (values: number[]) => values.every((value, index) => bytes[index] === value);
   if (type === "image/png") return starts([0x89, 0x50, 0x4e, 0x47]);
@@ -40,6 +40,10 @@ function hasExpectedMagic(type: string, input: ArrayBuffer): boolean {
   if (type === "application/pdf") return starts([0x25, 0x50, 0x44, 0x46]);
   if (type === "video/mp4") return bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
   if (type === "video/webm") return starts([0x1a, 0x45, 0xdf, 0xa3]);
+  if (type === "audio/mpeg") return starts([0x49, 0x44, 0x33]) || (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
+  if (type === "audio/mp4") return bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
+  if (type === "audio/wav") return starts([0x52, 0x49, 0x46, 0x46]) && bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45;
+  if (type === "audio/ogg") return starts([0x4f, 0x67, 0x67, 0x53]);
   return false;
 }
 

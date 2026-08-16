@@ -25,6 +25,8 @@ const renderSchema = z.object({
   cornerDotStyle: z.enum(["square", "dot", "extra-rounded"]).default("dot"),
   logoAssetId: z.string().uuid().nullable().optional().default(null),
   logoSize: z.number().int().min(0).max(100).optional(),
+  frameText: z.string().trim().max(40).optional().default(""),
+  showFrame: z.boolean().optional().default(false),
   errorCorrectionLevel: z.enum(["L", "M", "Q", "H"]).optional().default("M"),
 });
 
@@ -49,8 +51,41 @@ type CodeRow = {
 };
 type VersionRow = { id: string; code_id: string; version: number; revision: number; content_json: string; render_json: string; created_at: string; published_at: string };
 
+/**
+ * Convert Zod paths to the field names consumed by the web form. Keeping this
+ * mapping at the API boundary means clients can render useful errors without
+ * having to duplicate the content contract or parse a server message.
+ */
+function zodFieldErrors(error: z.ZodError): Record<string, string[]> {
+  const fieldErrors: Record<string, string[]> = {};
+  for (const issue of error.issues) {
+    const path = issue.path
+      .map((part) => (typeof part === "number" ? `[${part}]` : String(part)))
+      .join(".")
+      .replaceAll(".[", "[");
+    const key = path || "form";
+    fieldErrors[key] = [...(fieldErrors[key] ?? []), issue.message];
+  }
+  return fieldErrors;
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, child]) => `${JSON.stringify(key)}:${canonicalJson(child)}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return canonicalJson(left) === canonicalJson(right);
+}
+
 function defaultRender(): QrRenderConfig {
-  return { size: 512, margin: 16, foreground: "#2563EB", background: "#FBF9F3", dotStyle: "rounded", cornerSquareStyle: "extra-rounded", cornerDotStyle: "dot", logoAssetId: null, errorCorrectionLevel: "M" };
+  return { size: 512, margin: 16, foreground: "#2563EB", background: "#FBF9F3", dotStyle: "rounded", cornerSquareStyle: "extra-rounded", cornerDotStyle: "dot", logoAssetId: null, logoSize: 56, frameText: "", showFrame: false, errorCorrectionLevel: "M" };
 }
 function codePayload(row: CodeRow) {
   return {
@@ -68,7 +103,7 @@ function referencedAssetIds(content: ActiveContent, render: QrRenderConfig): str
   if ("assetId" in content) ids.push(content.assetId);
   if (content.type === "video") ids.push(content.posterAssetId);
   if (content.type === "audio") ids.push(content.coverAssetId);
-  return ids.filter((id): id is string => Boolean(id) && id !== EMPTY_ASSET_ID);
+  return [...new Set(ids.filter((id): id is string => Boolean(id) && id !== EMPTY_ASSET_ID))];
 }
 async function assertOwnedAssets(context: AppContext, content: ActiveContent, render: QrRenderConfig, ownerId: string): Promise<boolean> {
   const ids = referencedAssetIds(content, render);
@@ -98,8 +133,12 @@ codeRoutes.get("/codes", async (c) => {
 
 codeRoutes.post("/codes", async (c) => {
   const user = await currentUser(c); if (!user) return apiError(c, 401, "UNAUTHORIZED", "请先登录");
-  const parsed = createSchema.safeParse(await readJson(c)); if (!parsed.success) return apiError(c, 422, "VALIDATION_ERROR", "活码参数无效");
-  const content = parsed.data.content; const render = renderSchema.parse({ ...defaultRender(), ...(parsed.data.render ?? {}) });
+  const parsed = createSchema.safeParse(await readJson(c));
+  if (!parsed.success) return apiError(c, 422, "VALIDATION_ERROR", "活码参数无效", zodFieldErrors(parsed.error));
+  const content = parsed.data.content;
+  const renderParsed = renderSchema.safeParse({ ...defaultRender(), ...(parsed.data.render ?? {}) });
+  if (!renderParsed.success) return apiError(c, 422, "VALIDATION_ERROR", "二维码样式参数无效", zodFieldErrors(renderParsed.error));
+  const render = renderParsed.data;
   if (!(await assertOwnedAssets(c, content, render, user.id))) return apiError(c, 422, "UPLOAD_REJECTED", "内容引用了无权限的资源");
   const id = crypto.randomUUID(); const createdAt = nowIso(); let slug = randomSlug(10);
   for (let i = 0; i < 3; i += 1) { const exists = await c.env.DB.prepare("SELECT 1 FROM qr_codes WHERE slug = ?").bind(slug).first(); if (!exists) break; slug = randomSlug(10); }
@@ -117,14 +156,27 @@ codeRoutes.get("/codes/:codeId", async (c) => {
 
 codeRoutes.patch("/codes/:codeId", async (c) => {
   const user = await currentUser(c); if (!user) return apiError(c, 401, "UNAUTHORIZED", "请先登录");
-  const id = idSchema.safeParse(c.req.param("codeId")); const body = updateSchema.safeParse(await readJson(c)); if (!id.success || !body.success) return apiError(c, 422, "VALIDATION_ERROR", "活码更新参数无效");
+  const id = idSchema.safeParse(c.req.param("codeId"));
+  const body = updateSchema.safeParse(await readJson(c));
+  if (!id.success || !body.success) {
+    return apiError(c, 422, "VALIDATION_ERROR", "活码更新参数无效", body.success ? undefined : zodFieldErrors(body.error));
+  }
   const row = await ownedCode(c, id.data, user.id); if (!row) return apiError(c, 404, "NOT_FOUND", "活码不存在");
   if (row.revision !== body.data.revision) return apiError(c, 409, "REVISION_CONFLICT", "草稿已被其他操作更新");
   const content = body.data.content ?? jsonParse<ActiveContent>(row.draft_content_json, { type: "text", title: "", text: "" });
-  const render = renderSchema.parse({ ...defaultRender(), ...jsonParse(row.draft_render_json, {}), ...(body.data.render ?? {}) });
+  const renderParsed = renderSchema.safeParse({ ...defaultRender(), ...jsonParse(row.draft_render_json, {}), ...(body.data.render ?? {}) });
+  if (!renderParsed.success) return apiError(c, 422, "VALIDATION_ERROR", "二维码样式参数无效", zodFieldErrors(renderParsed.error));
+  const render = renderParsed.data;
   if (!(await assertOwnedAssets(c, content, render, user.id))) return apiError(c, 422, "UPLOAD_REJECTED", "内容引用了无权限的资源");
+  const nextTitle = body.data.title ?? row.title;
+  const nextStatus = body.data.status ?? row.status;
+  const currentContent = jsonParse<ActiveContent>(row.draft_content_json, { type: "text", title: "", text: "" });
+  const currentRender = renderSchema.parse({ ...defaultRender(), ...jsonParse(row.draft_render_json, {}) });
+  if (nextTitle === row.title && nextStatus === row.status && sameValue(content, currentContent) && sameValue(render, currentRender)) {
+    return c.json({ data: codePayload(row) });
+  }
   const nextRevision = row.revision + 1; const updatedAt = nowIso();
-  await c.env.DB.prepare("UPDATE qr_codes SET title = ?, content_type = ?, draft_content_json = ?, draft_render_json = ?, revision = ?, status = ?, updated_at = ? WHERE id = ? AND owner_id = ? AND revision = ?").bind(body.data.title ?? row.title, content.type, JSON.stringify(content), JSON.stringify(render), nextRevision, body.data.status ?? row.status, updatedAt, row.id, user.id, row.revision).run();
+  await c.env.DB.prepare("UPDATE qr_codes SET title = ?, content_type = ?, draft_content_json = ?, draft_render_json = ?, revision = ?, status = ?, updated_at = ? WHERE id = ? AND owner_id = ? AND revision = ?").bind(nextTitle, content.type, JSON.stringify(content), JSON.stringify(render), nextRevision, nextStatus, updatedAt, row.id, user.id, row.revision).run();
   const updated = await ownedCode(c, row.id, user.id); if (!updated) throw new Error("CODE_UPDATE_FAILED"); return c.json({ data: codePayload(updated) });
 });
 
@@ -144,10 +196,17 @@ codeRoutes.post("/codes/:codeId/preview", async (c) => {
 
 codeRoutes.post("/codes/:codeId/publish", async (c) => {
   const user = await currentUser(c); if (!user) return apiError(c, 401, "UNAUTHORIZED", "请先登录");
-  const id = idSchema.safeParse(c.req.param("codeId")); const body = publishSchema.safeParse(await readJson(c)); if (!id.success || !body.success) return apiError(c, 422, "VALIDATION_ERROR", "发布参数无效");
+  const id = idSchema.safeParse(c.req.param("codeId"));
+  const body = publishSchema.safeParse(await readJson(c));
+  if (!id.success || !body.success) return apiError(c, 422, "VALIDATION_ERROR", "发布参数无效", body.success ? undefined : zodFieldErrors(body.error));
   const row = await ownedCode(c, id.data, user.id); if (!row) return apiError(c, 404, "NOT_FOUND", "活码不存在");
   if (row.revision !== body.data.revision) return apiError(c, 409, "REVISION_CONFLICT", "草稿已被其他操作更新");
-  const content = activeContentSchema.parse(jsonParse(row.draft_content_json, null)); const render = renderSchema.parse(jsonParse(row.draft_render_json, defaultRender()));
+  const contentParsed = activeContentSchema.safeParse(jsonParse(row.draft_content_json, null));
+  if (!contentParsed.success) return apiError(c, 422, "VALIDATION_ERROR", "活码内容无效，无法发布", zodFieldErrors(contentParsed.error));
+  const renderParsed = renderSchema.safeParse(jsonParse(row.draft_render_json, defaultRender()));
+  if (!renderParsed.success) return apiError(c, 422, "VALIDATION_ERROR", "二维码样式参数无效", zodFieldErrors(renderParsed.error));
+  const content = contentParsed.data;
+  const render = renderParsed.data;
   if ((content.type === "image" || content.type === "video" || content.type === "audio" || content.type === "file") && content.assetId === EMPTY_ASSET_ID) return apiError(c, 422, "UPLOAD_REJECTED", "请先上传内容文件再发布");
   if (!(await assertOwnedAssets(c, content, render, user.id))) return apiError(c, 422, "UPLOAD_REJECTED", "内容引用了无权限的资源");
   const previous = await c.env.DB.prepare("SELECT COALESCE(MAX(version), 0) AS version FROM qr_code_versions WHERE code_id = ?").bind(row.id).first<{ version: number }>();
@@ -198,37 +257,106 @@ publicCodeRoutes.get("/:slug", async (c, next) => {
     if (legacy) return next();
     return apiError(c, 404, "NOT_FOUND", "二维码不存在、已暂停或尚未发布");
   }
-  await incrementCodeAnalytics(c, found.row.id, "scans");
-  const assets = await publicAssets(c, found.version.id, found.row.slug);
+  // A browser may retry a GET, and React strict mode may load the same
+  // resource twice. Treat an explicit client id as one logical scan while
+  // preserving the old behaviour for callers that do not send the header.
+  const idempotencyKey = publicIdempotencyKey(c.req.header("X-Idempotency-Key") ?? c.req.header("X-Event-Id")) ?? crypto.randomUUID();
+  await recordPublicEvent(c, found.row.id, found.version.id, "scan", idempotencyKey, undefined);
+  const assets = await publicAssets(c, found.version.id, found.row.slug, jsonParse<ActiveContent>(found.version.content_json, { type: "text", title: "", text: "" }));
   return c.json({ data: toPublicContent(found.row, found.version, assets) });
 });
 
 publicCodeRoutes.get("/:slug/assets/:assetId", async (c) => {
-  const found = await publicCode(c, c.req.param("slug")); if (!found) return apiError(c, 404, "NOT_FOUND", "二维码不存在、已暂停或尚未发布");
-  const asset = await c.env.DB.prepare("SELECT a.object_key, a.content_type FROM qr_code_assets qa JOIN assets a ON a.id = qa.asset_id WHERE qa.version_id = ? AND qa.asset_id = ? AND a.deleted_at IS NULL LIMIT 1").bind(found.version.id, c.req.param("assetId")).first<{ object_key: string; content_type: string }>();
+  const slug = c.req.param("slug");
+  const assetId = c.req.param("assetId");
+  const ip = c.req.header("CF-Connecting-IP") ?? "local";
+  if (!(await consumeRateLimit(c.env.DB, await hashValue(`asset:${slug}:${assetId}:${ip}`), 60, 60))) return apiError(c, 429, "RATE_LIMITED", "资源访问过于频繁，请稍后再试");
+  const found = await publicCode(c, slug); if (!found) return apiError(c, 404, "NOT_FOUND", "二维码不存在、已暂停或尚未发布");
+  const asset = await c.env.DB.prepare("SELECT a.object_key, a.content_type, a.size FROM qr_code_assets qa JOIN assets a ON a.id = qa.asset_id WHERE qa.version_id = ? AND qa.asset_id = ? AND a.deleted_at IS NULL LIMIT 1").bind(found.version.id, assetId).first<{ object_key: string; content_type: string; size: number }>();
   if (!asset) return apiError(c, 404, "NOT_FOUND", "资源不存在"); const object = await c.env.ASSETS_BUCKET.get(asset.object_key); if (!object) return apiError(c, 404, "NOT_FOUND", "资源不存在");
-  const headers = new Headers({ "Cache-Control": "public, max-age=300", "Content-Type": asset.content_type }); object.writeHttpMetadata(headers); headers.set("ETag", object.httpEtag); return new Response(object.body, { status: 200, headers });
+  const headers = new Headers({ "Cache-Control": "public, max-age=300", "Content-Type": asset.content_type, "X-Content-Type-Options": "nosniff" });
+  object.writeHttpMetadata(headers);
+  headers.set("Content-Type", asset.content_type);
+  headers.set("ETag", object.httpEtag);
+  const content = jsonParse<ActiveContent>(found.version.content_json, { type: "text", title: "", text: "" });
+  const download = c.req.query("download") === "1";
+  const filename = publicAssetFilename(content, assetId, asset.content_type);
+  if (download) headers.set("Content-Disposition", contentDisposition(filename));
+  else headers.delete("Content-Disposition");
+  return new Response(object.body, { status: 200, headers });
 });
 
 publicCodeRoutes.post("/:slug/events", async (c) => {
   const found = await publicCode(c, c.req.param("slug")); if (!found) return apiError(c, 404, "NOT_FOUND", "二维码不存在、已暂停或尚未发布");
-  const body = eventSchema.safeParse(await readJson(c)); if (!body.success) return apiError(c, 422, "VALIDATION_ERROR", "事件参数无效");
+  const body = eventSchema.safeParse(await readJson(c)); if (!body.success) return apiError(c, 422, "VALIDATION_ERROR", "事件参数无效", zodFieldErrors(body.error));
   const ip = c.req.header("CF-Connecting-IP") ?? "local"; if (!(await consumeRateLimit(c.env.DB, await hashValue(`event:${found.row.id}:${ip}`), 60, 60))) return apiError(c, 429, "RATE_LIMITED", "事件提交过于频繁");
-  const occurred = body.data.occurredAt ?? nowIso(); const result = await c.env.DB.prepare("INSERT OR IGNORE INTO qr_access_events (id, code_id, version_id, event, idempotency_key, metadata_json, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(crypto.randomUUID(), found.row.id, found.version.id, body.data.event, body.data.idempotencyKey, JSON.stringify(body.data.metadata ?? {}), occurred).run();
-  if (result.meta.changes) {
-    const field = body.data.event === "scan" ? "scans" : ({ view: "views", click: "clicks", download: "downloads", play: "plays" } as const)[body.data.event];
-    await incrementCodeAnalytics(c, found.row.id, field);
-  }
-  return c.json({ data: { accepted: true, duplicate: !result.meta.changes } });
+  const result = await recordPublicEvent(c, found.row.id, found.version.id, body.data.event, body.data.idempotencyKey, body.data.metadata, body.data.occurredAt);
+  return c.json({ data: { accepted: true, duplicate: result.duplicate } });
 });
 
-async function publicAssets(c: AppContext, versionId: string, slug: string): Promise<PublicContentResponse["assets"]> {
+function publicIdempotencyKey(value: string | undefined): string | null {
+  if (!value || value.length < 8 || value.length > 120) return null;
+  return value;
+}
+
+type PublicEvent = "scan" | "view" | "click" | "download" | "play";
+type EventMetadata = Record<string, string | number | boolean | null> | undefined;
+
+async function recordPublicEvent(c: AppContext, codeId: string, versionId: string, event: PublicEvent, idempotencyKey: string, metadata: EventMetadata, occurredAt = nowIso()): Promise<{ duplicate: boolean }> {
+  // Keep the event namespace in the stored key as well as in the migration's
+  // composite uniqueness constraint. This remains safe if an older database
+  // is served before migration 0003 has been applied.
+  const storageKey = `${event}:${idempotencyKey}`;
+  const result = await c.env.DB.prepare("INSERT OR IGNORE INTO qr_access_events (id, code_id, version_id, event, idempotency_key, metadata_json, occurred_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .bind(crypto.randomUUID(), codeId, versionId, event, storageKey, JSON.stringify(metadata ?? {}), occurredAt).run();
+  if (result.meta.changes) {
+    const field = event === "scan" ? "scans" : ({ view: "views", click: "clicks", download: "downloads", play: "plays" } as const)[event];
+    await incrementCodeAnalytics(c, codeId, field);
+  }
+  return { duplicate: !result.meta.changes };
+}
+
+async function publicAssets(c: AppContext, versionId: string, slug: string, content: ActiveContent): Promise<PublicContentResponse["assets"]> {
   const rows = await c.env.DB.prepare("SELECT a.id, a.content_type, a.size, a.object_key FROM qr_code_assets qa JOIN assets a ON a.id = qa.asset_id WHERE qa.version_id = ? AND a.deleted_at IS NULL").bind(versionId).all<{ id: string; content_type: string; size: number; object_key: string }>();
-  return rows.results.map((a) => ({ id: a.id, contentType: a.content_type, size: a.size, name: null, url: `/api/public/${slug}/assets/${a.id}` }));
+  return rows.results.map((a) => ({ id: a.id, contentType: a.content_type, size: a.size, name: publicAssetFilename(content, a.id, a.content_type), url: `/api/public/${slug}/assets/${a.id}` }));
 }
 async function incrementCodeAnalytics(c: AppContext, codeId: string, field: "scans" | "views" | "clicks" | "downloads" | "plays") {
   const date = new Date().toISOString().slice(0, 10);
   await c.env.DB.prepare(`INSERT INTO analytics_daily_codes (code_id, date, ${field}) VALUES (?, ?, 1) ON CONFLICT(code_id, date) DO UPDATE SET ${field} = ${field} + 1`).bind(codeId, date).run();
+}
+
+function extensionForMime(contentType: string): string {
+  const extension = ({
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+    "video/mp4": "mp4", "video/webm": "webm", "audio/mpeg": "mp3", "audio/mp4": "m4a",
+    "audio/wav": "wav", "audio/ogg": "ogg", "application/pdf": "pdf", "text/plain": "txt",
+  } as Record<string, string>)[contentType];
+  return extension ?? "bin";
+}
+
+function safeFilename(value: string, fallback: string): string {
+  const cleaned = Array.from(value, (character) => {
+    const code = character.charCodeAt(0);
+    return code < 0x20 || code === 0x7f || "\\/:*?\"<>|".includes(character) ? "_" : character;
+  }).join("").trim().replace(/^\.+/, "");
+  const result = (cleaned || fallback).slice(0, 180);
+  return result || fallback;
+}
+
+function publicAssetFilename(content: ActiveContent, assetId: string, contentType: string): string {
+  if (content.type === "file" && content.assetId === assetId) return safeFilename(content.downloadName, `tp-qr-${assetId}.${extensionForMime(contentType)}`);
+  if (content.type === "image" && content.assetId === assetId) return `tp-qr-image.${extensionForMime(contentType)}`;
+  if (content.type === "video" && content.assetId === assetId) return `tp-qr-video.${extensionForMime(contentType)}`;
+  if (content.type === "audio" && content.assetId === assetId) return `tp-qr-audio.${extensionForMime(contentType)}`;
+  if (content.type === "video" && content.posterAssetId === assetId) return `tp-qr-poster.${extensionForMime(contentType)}`;
+  if (content.type === "audio" && content.coverAssetId === assetId) return `tp-qr-cover.${extensionForMime(contentType)}`;
+  return `tp-qr-asset.${extensionForMime(contentType)}`;
+}
+
+function contentDisposition(filename: string): string {
+  const safe = safeFilename(filename, "tp-qr-download");
+  const ascii = safe.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "'");
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(safe)}`;
 }
 
 function hasExpectedMagic(type: string, input: ArrayBuffer): boolean {
@@ -242,6 +370,9 @@ function hasExpectedMagic(type: string, input: ArrayBuffer): boolean {
   if (type === "application/pdf") return starts([0x25, 0x50, 0x44, 0x46]);
   if (type === "video/mp4") return bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
   if (type === "video/webm") return starts([0x1a, 0x45, 0xdf, 0xa3]);
-  if (type.startsWith("audio/")) return true;
+  if (type === "audio/mpeg") return starts([0x49, 0x44, 0x33]) || (bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
+  if (type === "audio/mp4") return bytes.length >= 8 && bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70;
+  if (type === "audio/wav") return starts([0x52, 0x49, 0x46, 0x46]) && bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45;
+  if (type === "audio/ogg") return starts([0x4f, 0x67, 0x67, 0x53]);
   return false;
 }

@@ -20,4 +20,22 @@ describe("open-source boundary", () => {
     const content = readFileSync(template, "utf8");
     expect(content).not.toMatch(/https?:\/\/(?!replace-with|your[-_]|example)[a-z0-9-]+\.workers\.dev/i);
   });
+
+  it("uses Resend in production and never ships a fixed verification code", () => {
+    const template = path.join(repositoryRoot, "infra/cloudflare/wrangler.production.example.jsonc");
+    const content = readFileSync(template, "utf8");
+    expect(content).toMatch(/"ENVIRONMENT"\s*:\s*"production"/);
+    expect(content).toMatch(/"AUTH_DELIVERY_MODE"\s*:\s*"resend"/);
+    expect(content).not.toMatch(/AUTH_TEST_CODE/);
+    expect(content).not.toMatch(/123456/);
+  });
+
+  it("documents secret-only Resend configuration", () => {
+    const guide = readFileSync(path.join(repositoryRoot, "docs/deployment-cloudflare.md"), "utf8");
+    expect(guide).toMatch(/AUTH_DELIVERY_MODE\s*=\s*resend/i);
+    expect(guide).toMatch(/RESEND_API_KEY/);
+    expect(guide).toMatch(/wrangler\s+secret\s+put\s+RESEND_API_KEY/i);
+    expect(guide).toMatch(/RESEND_FROM_EMAIL/);
+    expect(guide).toMatch(/must not set `AUTH_TEST_CODE`|not set `AUTH_TEST_CODE`/i);
+  });
 });

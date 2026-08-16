@@ -46,6 +46,8 @@ test.describe("TP QR 本地核心流程", () => {
     await page.getByLabel("内容类型").selectOption("text");
     await page.getByRole("button", { name: "创建并编辑" }).click();
     await expect(page).toHaveURL(/\/app\/codes\/[0-9a-f-]+\/qr$/);
+    expect(await page.locator(".tp-content-editor").evaluate((element) => getComputedStyle(element).display)).toBe("grid");
+    expect(await page.locator(".tp-content-types [role=tab]").count()).toBe(7);
 
     await page.getByLabel("正文").fill("桌面与移动端均可访问的公共文字内容");
     await page.getByRole("button", { name: "保存草稿" }).click();
@@ -96,9 +98,9 @@ test.describe("TP QR 本地核心流程", () => {
     const code = (await json<Code>(created)).data;
     if (!code) throw new Error("创建图片活码失败");
     await page.goto(`/app/codes/${code.id}/qr?type=image`);
-    await expect(page.getByRole("tab", { name: "图片" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "图片" })).toBeVisible({ timeout: 20000 });
     const fixture = path.join(process.cwd(), "tmp", "fixtures", "sample-image.png");
-    await page.locator('input[type="file"]').setInputFiles(fixture);
+    await page.locator('input[type="file"][accept="image/*"]').setInputFiles(fixture);
     await expect(page.getByText("资源已上传，请保存草稿", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "保存草稿" }).click();
     await expect(page.getByText("草稿已保存", { exact: true })).toBeVisible();
@@ -113,6 +115,16 @@ test.describe("TP QR 本地核心流程", () => {
     const assetResponse = await page.request.get(`/api/public/${updated?.slug}/assets/${publicBody.data?.code.content.assetId}`);
     expect(assetResponse.status()).toBe(200);
     expect(assetResponse.headers()["content-type"]).toContain("image/png");
+    await page.goto(`/s/${updated?.slug}`);
+    await expect(page).toHaveTitle("TPQRCODE");
+    await expect(page.locator(".public-content-page--image")).toBeVisible();
+    await expect(page.locator(".public-content-card__toolbar")).toHaveCount(0);
+    await expect(page.locator(".public-content-card__title")).toHaveCount(0);
+    await expect(page.locator(".public-content-card--image .public-image-only")).toHaveCount(1);
+    expect(await page.locator(".public-content-card--image").locator("button, a, h1, h2, p, header, footer").count()).toBe(0);
+    const imageBackground = await page.locator(".public-content-card--image").evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(imageBackground).toBe("rgb(255, 255, 255)");
+    await expect(page.locator(".public-content-card--image img")).toBeVisible();
   });
 
   test("移动端菜单、公共页无横向溢出，未知 slug 显示错误状态", async ({ page }) => {
@@ -123,7 +135,10 @@ test.describe("TP QR 本地核心流程", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(overflow).toBe(false);
     await page.goto("/s/UNKNOWNQR00");
-    await expect(page.getByRole("alert")).toBeVisible();
+    // A cold local Worker can take a few seconds to finish the unknown-slug
+    // response after navigation. Keep the assertion deterministic without
+    // weakening the actual error-state requirement.
+    await expect(page.getByRole("alert")).toBeVisible({ timeout: 15_000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
   });
 });

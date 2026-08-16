@@ -60,6 +60,10 @@ export interface PublicResponse {
 }
 
 export const api = {
+  authProviders: () => apiClient.get<{ google: boolean; github: boolean }>("/api/auth/providers"),
+  oauthStart: (provider: "google" | "github", returnTo = "/app") => {
+    window.location.assign(`/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo)}`);
+  },
   requestCode: (email: string) => apiClient.post<{ accepted: boolean; expiresAt: string; testCode?: string }>("/api/auth/request-code", { email }),
   verifyCode: (email: string, code: string) => apiClient.post<{ id: string; email: string; createdAt: string }>("/api/auth/verify-code", { email, code }),
   logout: () => apiClient.post<{ loggedOut: boolean }>("/api/auth/logout"),
@@ -103,7 +107,7 @@ export const api = {
     return apiClient.post<{ id: string; contentType: string; size: number; name: string | null }>(`/api/codes/${encodeURIComponent(codeId)}/assets`, form);
   },
   publicCode: (slug: string) => apiClient.get<PublicContentResponse>(`/api/public/${encodeURIComponent(slug)}`),
-  publicEvent: (slug: string, event: "scan" | "view" | "click" | "download" | "play", idempotencyKey = crypto.randomUUID()) => apiClient.post<{ accepted: boolean; duplicate: boolean }>(`/api/public/${encodeURIComponent(slug)}/events`, { event, idempotencyKey }),
+  publicEvent: (slug: string, event: "scan" | "view" | "click" | "download" | "play", idempotencyKey: string = crypto.randomUUID()) => apiClient.post<{ accepted: boolean; duplicate: boolean }>(`/api/public/${encodeURIComponent(slug)}/events`, { event, idempotencyKey }),
 };
 
 export function projectFormSchema(project: ProjectDraft): FormSchema | null {

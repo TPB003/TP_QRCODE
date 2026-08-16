@@ -24,3 +24,8 @@ page-level horizontal overflow or console errors.
 
 Tests must use the deterministic fixtures under `tests/fixtures`. Do not place
 real QR codes, personal data, or generated screenshots in the repository.
+
+The Playwright configuration starts Vite and Wrangler through
+`scripts/start-test-servers.mjs` as independent processes. This keeps the
+browser gate stable on Windows; `npm run dev` remains the interactive shortcut
+for local manual work.

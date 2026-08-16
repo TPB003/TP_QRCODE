@@ -24,10 +24,20 @@
       "bucket_name": "replace-with-your-r2-bucket"
     }
   ],
+  "routes": [
+    {
+      "pattern": "replace-with-your-domain",
+      "custom_domain": true
+    }
+  ],
   "vars": {
     "ENVIRONMENT": "production",
     "APP_ORIGIN": "https://replace-with-your-domain",
+    "AUTH_OAUTH_CALLBACK_ORIGIN": "https://replace-with-your-domain",
+    "AUTH_GOOGLE_CLIENT_ID": "replace-with-google-client-id",
+    "AUTH_GITHUB_CLIENT_ID": "replace-with-github-client-id",
     "AUTH_DELIVERY_MODE": "resend",
-    "AUTH_ALLOWED_EMAILS": "*"
+    "AUTH_ALLOWED_EMAILS": "*",
+    "RESEND_FROM_EMAIL": "replace-with-verified-sender@example.com"
   }
 }
