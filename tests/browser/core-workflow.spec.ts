@@ -46,6 +46,8 @@ test.describe("TP QR 本地核心流程", () => {
     await page.getByLabel("内容类型").selectOption("text");
     await page.getByRole("button", { name: "创建并编辑" }).click();
     await expect(page).toHaveURL(/\/app\/codes\/[0-9a-f-]+\/qr$/);
+    expect(await page.locator(".tp-content-editor").evaluate((element) => getComputedStyle(element).display)).toBe("grid");
+    expect(await page.locator(".tp-content-types [role=tab]").count()).toBe(7);
 
     await page.getByLabel("正文").fill("桌面与移动端均可访问的公共文字内容");
     await page.getByRole("button", { name: "保存草稿" }).click();
@@ -113,6 +115,13 @@ test.describe("TP QR 本地核心流程", () => {
     const assetResponse = await page.request.get(`/api/public/${updated?.slug}/assets/${publicBody.data?.code.content.assetId}`);
     expect(assetResponse.status()).toBe(200);
     expect(assetResponse.headers()["content-type"]).toContain("image/png");
+    await page.goto(`/s/${updated?.slug}`);
+    await expect(page.locator(".public-content-page--image")).toBeVisible();
+    await expect(page.locator(".public-content-card__toolbar")).toHaveCount(0);
+    await expect(page.locator(".public-content-card__title")).toHaveCount(0);
+    const imageBackground = await page.locator(".public-content-card--image").evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(imageBackground).toBe("rgb(255, 255, 255)");
+    await expect(page.locator(".public-content-card--image img")).toBeVisible();
   });
 
   test("移动端菜单、公共页无横向溢出，未知 slug 显示错误状态", async ({ page }) => {

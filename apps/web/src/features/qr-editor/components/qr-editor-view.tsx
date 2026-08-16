@@ -8,6 +8,7 @@ import { ProjectShell } from "@client/components/layout/project-shell";
 import { ApiClientError, apiClient } from "@client/lib/api-client";
 import { ContentEditor } from "@client/features/content-editor/content-editor";
 import { emptyContent } from "@client/features/content-editor/content-editor-model";
+import "@client/features/public-content/public-content.css";
 import { PublicContentFrame } from "@client/features/public-content/public-content-frame";
 import "../qr-editor.css";
 import "../qr-editor-overrides.css";
@@ -57,14 +58,23 @@ export function QrEditorView() {
     return () => { active = false; };
   }, [projectId, requestedType]);
   const payload = useMemo(() => buildPublicPayload(code?.slug ?? "TPQRDEMO01"), [code?.slug]);
-  async function handleUpload(file: File, purpose?: string) { if (!code) throw new Error("活码尚未加载"); setUploading(true); try { const id = await uploadAsset(code.id, file, purpose ?? content.type); setContent((current) => ({ ...current, assetId: id } as ActiveContent)); setNotice("资源已上传，请保存草稿"); return id; } catch (error) { setNotice(error instanceof Error ? error.message : "上传失败"); throw error; } finally { setUploading(false); } }
+  async function handleUpload(file: File, purpose?: string) { if (!code) throw new Error("活码尚未加载"); setUploading(true); try { const id = await uploadAsset(code.id, file, purpose ?? content.type); setContent((current) => ({ ...current, assetId: id } as ActiveContent)); setFieldErrors((current) => { const next = { ...current }; delete next["content.assetId"]; delete next.assetId; return next; }); setNotice("资源已上传，请保存草稿"); return id; } catch (error) { setNotice(error instanceof Error ? error.message : "上传失败"); throw error; } finally { setUploading(false); } }
   function handleSaveError(error: unknown, fallback: string) {
     if (error instanceof ApiClientError && error.fieldErrors) setFieldErrors(error.fieldErrors);
     else setFieldErrors({});
     setNotice(error instanceof ApiClientError && error.code === "REVISION_CONFLICT" ? "内容已被其他窗口修改，请刷新后重试" : error instanceof Error ? error.message : fallback);
   }
   async function saveDraft() { if (!code) return; setBusy(true); setFieldErrors({}); try { const updated = await saveCode(code.id, code.revision, { title, content, render }); setCode(updated); setNotice("草稿已保存"); } catch (error) { handleSaveError(error, "保存失败"); } finally { setBusy(false); } }
-  async function publish() { if (!code) return; setBusy(true); setFieldErrors({}); try { const saved = await saveCode(code.id, code.revision, { title, content, render }); const published = await publishCode(code.id, saved.revision); setCode({ ...saved, status: "published", publishedVersionId: published.version.id }); setNotice("已发布，新版本立即生效"); } catch (error) { handleSaveError(error, "发布失败"); } finally { setBusy(false); } }
+  async function publish() {
+    if (!code) return;
+    const needsAsset = content.type === "image" || content.type === "video" || content.type === "audio" || content.type === "file";
+    if (needsAsset && content.assetId.startsWith("00000000")) {
+      setFieldErrors({ "content.assetId": [`请先上传${content.type === "file" ? "文件" : content.type === "image" ? "图片" : content.type === "video" ? "视频" : "音频"}，再发布二维码`] });
+      setNotice("请先选择并上传内容文件");
+      return;
+    }
+    setBusy(true); setFieldErrors({}); try { const saved = await saveCode(code.id, code.revision, { title, content, render }); const published = await publishCode(code.id, saved.revision); setCode({ ...saved, status: "published", publishedVersionId: published.version.id }); setNotice("已发布，新版本立即生效"); } catch (error) { handleSaveError(error, "发布失败"); } finally { setBusy(false); }
+  }
   async function exportQr() { if (!code) return; setBusy(true); try { const blob = await qrBlob(payload, render, format); const result = await shareOrDownload(blob, `tp-qr-${code.slug}.${format}`); setNotice(result === "shared" ? "已打开系统分享" : `已下载 ${format.toUpperCase()} 文件`); } catch (error) { if (!(error instanceof DOMException && error.name === "AbortError")) setNotice(error instanceof Error ? error.message : "下载失败"); } finally { setBusy(false); } }
   const previewData = useMemo<PublicContentResponse | null>(() => {
     if (!code) return null;
