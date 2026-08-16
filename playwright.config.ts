@@ -1,4 +1,11 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+const configuredExecutable = process.env.PLAYWRIGHT_EXECUTABLE_PATH;
+const localChromeExecutable = process.platform === "win32"
+  ? "C:/Program Files/Google/Chrome/Application/chrome.exe"
+  : undefined;
+const executablePath = configuredExecutable ?? (localChromeExecutable && existsSync(localChromeExecutable) ? localChromeExecutable : undefined);
 
 export default defineConfig({
   testDir: "tests/browser",
@@ -12,7 +19,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { outputFolder: "tmp/playwright-report", open: "never" }]],
   use: {
     baseURL: "http://127.0.0.1:5173",
-    launchOptions: { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH ?? "C:/Program Files/Google/Chrome/Application/chrome.exe" },
+    launchOptions: executablePath ? { executablePath } : undefined,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
