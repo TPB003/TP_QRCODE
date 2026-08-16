@@ -116,6 +116,7 @@ test.describe("TP QR 本地核心流程", () => {
     expect(assetResponse.status()).toBe(200);
     expect(assetResponse.headers()["content-type"]).toContain("image/png");
     await page.goto(`/s/${updated?.slug}`);
+    await expect(page).toHaveTitle("TPQRCODE");
     await expect(page.locator(".public-content-page--image")).toBeVisible();
     await expect(page.locator(".public-content-card__toolbar")).toHaveCount(0);
     await expect(page.locator(".public-content-card__title")).toHaveCount(0);
