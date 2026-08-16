@@ -100,7 +100,7 @@ test.describe("TP QR 本地核心流程", () => {
     await page.goto(`/app/codes/${code.id}/qr?type=image`);
     await expect(page.getByRole("tab", { name: "图片" })).toBeVisible({ timeout: 20000 });
     const fixture = path.join(process.cwd(), "tmp", "fixtures", "sample-image.png");
-    await page.locator('input[type="file"]').setInputFiles(fixture);
+    await page.locator('input[type="file"][accept="image/*"]').setInputFiles(fixture);
     await expect(page.getByText("资源已上传，请保存草稿", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "保存草稿" }).click();
     await expect(page.getByText("草稿已保存", { exact: true })).toBeVisible();
@@ -135,7 +135,10 @@ test.describe("TP QR 本地核心流程", () => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
     expect(overflow).toBe(false);
     await page.goto("/s/UNKNOWNQR00");
-    await expect(page.getByRole("alert")).toBeVisible();
+    // A cold local Worker can take a few seconds to finish the unknown-slug
+    // response after navigation. Keep the assertion deterministic without
+    // weakening the actual error-state requirement.
+    await expect(page.getByRole("alert")).toBeVisible({ timeout: 15_000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
   });
 });

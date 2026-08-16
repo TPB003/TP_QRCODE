@@ -25,6 +25,8 @@ const renderSchema = z.object({
   cornerDotStyle: z.enum(["square", "dot", "extra-rounded"]).default("dot"),
   logoAssetId: z.string().uuid().nullable().optional().default(null),
   logoSize: z.number().int().min(0).max(100).optional(),
+  frameText: z.string().trim().max(40).optional().default(""),
+  showFrame: z.boolean().optional().default(false),
   errorCorrectionLevel: z.enum(["L", "M", "Q", "H"]).optional().default("M"),
 });
 
@@ -83,7 +85,7 @@ function sameValue(left: unknown, right: unknown): boolean {
 }
 
 function defaultRender(): QrRenderConfig {
-  return { size: 512, margin: 16, foreground: "#2563EB", background: "#FBF9F3", dotStyle: "rounded", cornerSquareStyle: "extra-rounded", cornerDotStyle: "dot", logoAssetId: null, errorCorrectionLevel: "M" };
+  return { size: 512, margin: 16, foreground: "#2563EB", background: "#FBF9F3", dotStyle: "rounded", cornerSquareStyle: "extra-rounded", cornerDotStyle: "dot", logoAssetId: null, logoSize: 56, frameText: "", showFrame: false, errorCorrectionLevel: "M" };
 }
 function codePayload(row: CodeRow) {
   return {

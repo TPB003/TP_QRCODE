@@ -4,6 +4,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-10",
   "compatibility_flags": ["nodejs_compat"],
+  "dev": {
+    "inspector": false
+  },
   "assets": {
     "directory": "../../dist",
     "binding": "ASSETS",
