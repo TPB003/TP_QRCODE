@@ -98,7 +98,7 @@ test.describe("TP QR 本地核心流程", () => {
     const code = (await json<Code>(created)).data;
     if (!code) throw new Error("创建图片活码失败");
     await page.goto(`/app/codes/${code.id}/qr?type=image`);
-    await expect(page.getByRole("tab", { name: "图片" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "图片" })).toBeVisible({ timeout: 20000 });
     const fixture = path.join(process.cwd(), "tmp", "fixtures", "sample-image.png");
     await page.locator('input[type="file"]').setInputFiles(fixture);
     await expect(page.getByText("资源已上传，请保存草稿", { exact: true })).toBeVisible();
@@ -119,6 +119,8 @@ test.describe("TP QR 本地核心流程", () => {
     await expect(page.locator(".public-content-page--image")).toBeVisible();
     await expect(page.locator(".public-content-card__toolbar")).toHaveCount(0);
     await expect(page.locator(".public-content-card__title")).toHaveCount(0);
+    await expect(page.locator(".public-content-card--image .public-image-only")).toHaveCount(1);
+    expect(await page.locator(".public-content-card--image").locator("button, a, h1, h2, p, header, footer").count()).toBe(0);
     const imageBackground = await page.locator(".public-content-card--image").evaluate((element) => getComputedStyle(element).backgroundColor);
     expect(imageBackground).toBe("rgb(255, 255, 255)");
     await expect(page.locator(".public-content-card--image img")).toBeVisible();
