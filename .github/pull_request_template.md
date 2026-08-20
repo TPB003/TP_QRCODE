@@ -7,6 +7,9 @@
 - [ ] `npm run check:all`
 - [ ] `npm run check:opensource`
 - [ ] `git diff --check`
+- [ ] README is updated, or this change is documented as README-neutral.
+- [ ] Visual changes refresh `assets/open/homepage.png`.
+- [ ] New commands, environment variables, auth, or deployment changes are documented.
 
 ## Security and configuration
 

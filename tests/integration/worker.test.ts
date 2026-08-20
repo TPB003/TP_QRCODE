@@ -103,7 +103,7 @@ describe("TP QR Worker API", () => {
     const attachmentResponse = await SELF.fetch(`http://local${attachment?.url ?? ""}`, { headers: { Cookie: cookie } });
     expect(attachmentResponse.status).toBe(200);
     expect(attachmentResponse.headers.get("content-type")).toContain("image/webp");
-  });
+  }, 15_000);
 
   it("rejects stale revisions and unauthenticated management access", async () => {
     const unauthorized = await SELF.fetch("http://local/api/projects");

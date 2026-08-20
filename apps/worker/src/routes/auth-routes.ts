@@ -39,7 +39,11 @@ for (const provider of ["google", "github"] as const) {
       attachSessionCookie(context, result.sessionId);
       return context.redirect(new URL(result.returnTo, context.env.APP_ORIGIN).toString());
     } catch (error) {
-      return oauthFailure(context, error instanceof OAuthError ? error.code : "AUTH_OAUTH_FAILED");
+      const code = error instanceof OAuthError ? error.code : "AUTH_OAUTH_FAILED";
+      // Keep the diagnostic bounded to a non-sensitive error code. Provider
+      // tokens and response bodies must never enter Worker logs or redirects.
+      console.error("oauth_callback_failed", { provider, code });
+      return oauthFailure(context, code);
     }
   });
 }

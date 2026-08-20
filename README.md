@@ -5,6 +5,14 @@ teams. A stable slug can point to new content after each immutable publish.
 The repository contains reproducible source, tests, fictional local fixtures,
 and no personal Cloudflare resources.
 
+## Homepage
+
+[Open TP QR](https://tpqrcode.shop/)
+
+[![TP QR homepage](assets/open/homepage.png)](https://tpqrcode.shop/)
+
+[View the source on GitHub](https://github.com/TPB003/TP_QRCODE)
+
 ## Features
 
 - Seven active-code types: image, video, audio, file, URL, contact (vCard), and text.
@@ -114,8 +122,10 @@ workers.dev/D1/R2 procedure.
 
 ## Google and GitHub login
 
-The login page keeps email OTP and can also use Google or GitHub. Configure
-these exact production callbacks in the provider consoles:
+The login page currently exposes email OTP and GitHub login. The Google OAuth
+implementation remains in the Worker/API, but its button is temporarily hidden
+until the provider configuration and UI are re-enabled. Configure these exact
+production callbacks in the provider consoles:
 
 ```text
 https://tpqrcode.shop/api/auth/google/callback
@@ -149,6 +159,19 @@ npm run tpqr -- deploy --environment staging --config tmp/wrangler.staging.jsonc
 ```
 
 See [`docs/cli.md`](docs/cli.md) for production preflight and release checks.
+
+## Documentation sync
+
+Every pull request must review the README against the user-visible change:
+
+- Update Features and Workflow when behavior changes.
+- Update the homepage screenshot when a page or navigation experience changes.
+- Update CLI, environment, authentication, or Cloudflare sections when their
+  commands or configuration changes.
+- Keep `assets/open/homepage.png` fictional, reproducible, and free of personal
+  QR payloads or production data.
+- If a refactor has no user-visible effect, state in the pull request that the
+  README was checked and no update was needed.
 
 ## Testing and release gate
 

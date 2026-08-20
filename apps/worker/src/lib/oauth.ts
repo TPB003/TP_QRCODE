@@ -113,22 +113,25 @@ export async function createAuthorizationUrl(env: Bindings, provider: OAuthProvi
 
   const challenge = await codeChallenge(verifier);
   const redirectUri = callbackUri(env, provider);
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: "code",
-    state,
-    code_challenge: challenge,
-    code_challenge_method: "S256",
-  });
   if (provider === "google") {
-    params.set("scope", "openid email profile");
-    params.set("access_type", "online");
-    params.set("prompt", "select_account");
-    params.set("nonce", nonce ?? "");
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: "code",
+      state,
+      code_challenge: challenge,
+      code_challenge_method: "S256",
+      scope: "openid email profile",
+      access_type: "online",
+      prompt: "select_account",
+      nonce: nonce ?? "",
+    });
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
-  params.set("scope", "user:email");
+  // GitHub Apps use fine-grained permissions configured on the App, not
+  // OAuth scopes or PKCE parameters. Keep the request aligned with GitHub's
+  // App web-authorization flow; state still protects the callback from CSRF.
+  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, state });
   return `https://github.com/login/oauth/authorize?${params.toString()}`;
 }
 
@@ -194,18 +197,23 @@ async function exchangeGoogle(env: Bindings, code: string, state: OAuthStateRow)
   return { subject, email };
 }
 
-async function exchangeGitHub(env: Bindings, code: string, state: OAuthStateRow): Promise<ProviderProfile> {
+async function exchangeGitHub(env: Bindings, code: string): Promise<ProviderProfile> {
   const { clientId, clientSecret } = requireProviderConfig(env, "github");
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: callbackUri(env, "github"), code_verifier: state.code_verifier }),
+    headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: callbackUri(env, "github") }),
   });
   if (!response.ok) throw new OAuthError("AUTH_PROVIDER_EXCHANGE_FAILED");
   const token = asRecord(await response.json());
   const accessToken = asString(token.access_token);
   if (!accessToken) throw new OAuthError("AUTH_PROVIDER_RESPONSE_INVALID");
-  const headers = { Accept: "application/vnd.github+json", Authorization: `Bearer ${accessToken}` };
+  const headers = {
+    Accept: "application/vnd.github+json",
+    Authorization: `Bearer ${accessToken}`,
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "TPQRCODE",
+  };
   const userResponse = await fetch("https://api.github.com/user", { headers });
   const emailResponse = await fetch("https://api.github.com/user/emails", { headers });
   if (!userResponse.ok || !emailResponse.ok) throw new OAuthError("AUTH_PROVIDER_RESPONSE_INVALID");
@@ -251,7 +259,7 @@ async function userForIdentity(env: Bindings, provider: OAuthProvider, profile: 
 export async function completeOAuth(env: Bindings, provider: OAuthProvider, code: string, state: string): Promise<{ user: AuthUser; sessionId: string; returnTo: string }> {
   if (!code || !state) throw new OAuthError("AUTH_OAUTH_STATE_INVALID");
   const stateRow = await consumeState(env, provider, state);
-  const profile = provider === "google" ? await exchangeGoogle(env, code, stateRow) : await exchangeGitHub(env, code, stateRow);
+  const profile = provider === "google" ? await exchangeGoogle(env, code, stateRow) : await exchangeGitHub(env, code);
   const user = await userForIdentity(env, provider, profile);
   return { user, sessionId: await createSession(env, user.id), returnTo: stateRow.return_to };
 }
