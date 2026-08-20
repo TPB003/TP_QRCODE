@@ -27,6 +27,10 @@ export default defineConfig({
       main: "apps/worker/src/index.ts",
       wrangler: { configPath: "./apps/worker/wrangler.jsonc" },
     }),
+    // Cloudflare's local D1/R2 runtime can cold-start a media request on
+    // Windows. Keep the assertion strict while allowing that first request
+    // to finish on a clean machine.
+    testTimeout: 15_000,
     include: ["tests/integration/**/*.test.ts"],
     reporters: ["default"],
     setupFiles: ["tests/integration/setup.ts"],

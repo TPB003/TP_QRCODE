@@ -15,6 +15,7 @@ function GithubMark() {
 }
 
 export function Component() {
+  // Google OAuth remains implemented in the Worker/API; the UI is temporarily hidden in base.css.
   const [email, setEmail] = useState("");
   const [requested, setRequested] = useState(false);
   const [code, setCode] = useState("");

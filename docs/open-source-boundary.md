@@ -8,7 +8,9 @@ Never commit:
 
 - `.dev.vars`, `.env`, API keys, cookies, OAuth tokens, or private certificates;
 - real D1 IDs, private R2 names, account identifiers, or production hostnames;
-- personal QR payloads, customer submissions, uploaded media, or screenshots;
+- personal QR payloads, customer submissions, uploaded media, private screenshots,
+  or local test screenshots. A sanitized, fictional product screenshot is allowed
+  only when it is committed under `assets/open/` and matches the current README;
 - `node_modules`, `dist`, `.wrangler`, `tmp`, `output`, `archive`, coverage,
   Playwright reports, and generated ImageGen prompts/assets;
 - any local file copied from a Cloudflare dashboard.

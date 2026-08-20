@@ -92,6 +92,6 @@
     "typescript-eslint": "latest",
     "vite": "latest",
     "vitest": "latest",
-    "wrangler": "latest"
+    "wrangler": "4.113.0"
   }
 }

@@ -93,6 +93,8 @@ a {
 .oauth-button { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 10px; border: 1px solid var(--hairline); background: var(--paper-bright); color: var(--ink); font-weight: 800; cursor: pointer; }
 .oauth-button:disabled { cursor: not-allowed; opacity: .45; }
 .google-mark { display: inline-grid; width: 20px; height: 20px; place-items: center; color: #4285f4; font-weight: 950; }
+/* Google OAuth remains implemented in the Worker/API; hide only its UI until re-enabled. */
+.oauth-button:has(.google-mark) { display: none; }
 .login-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 -4px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; }
 .login-divider::before, .login-divider::after { height: 1px; flex: 1; background: var(--hairline); content: ""; }
 
