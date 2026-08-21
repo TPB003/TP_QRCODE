@@ -13,4 +13,12 @@
 7. Open a pull request describing the behavior, tests, screenshots (if visual),
    and known limitations.
 
+## Automatic merge policy
+
+The `main` branch accepts changes only through a pull request with the `CI / verify`
+check passing. Trusted pull requests authored by `TPB003` or Dependabot and coming
+from this repository are queued for squash auto-merge after CI succeeds. Add the
+`no-auto-merge` label when a passing pull request needs manual review. Pull requests
+from forks and draft pull requests are never auto-merged.
+
 For security issues, follow `SECURITY.md` instead of opening a public issue.
