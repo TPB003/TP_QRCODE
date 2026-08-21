@@ -1,4 +1,4 @@
-import { SELF } from "cloudflare:test";
+import { SELF, env } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 type Body<T = Record<string, unknown>> = { data?: T; error?: { code?: string; message?: string } };
@@ -75,7 +75,9 @@ describe("active code security boundaries", () => {
     const cookie = await auth();
     const active = await code(cookie);
     expect((await SELF.fetch(`http://local/api/codes/${active.id}/publish`, { method: "POST", headers: { "Content-Type": "application/json", Cookie: cookie }, body: JSON.stringify({ revision: active.revision }) })).status).toBe(200);
-    const ip = `198.51.100.${id}`;
+    const database = (env as unknown as { DB: D1Database }).DB;
+    await database.prepare("DELETE FROM rate_limits").run();
+    const ip = `198.51.100.${id}-${crypto.randomUUID()}`;
     let limited = false;
     for (let index = 0; index < 65; index += 1) {
       const response = await SELF.fetch(`http://local/api/public/${active.slug}/events`, { method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip }, body: JSON.stringify({ event: "view", idempotencyKey: `rate-${id}-${index}` }) });

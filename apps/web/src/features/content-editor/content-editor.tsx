@@ -11,14 +11,14 @@ export function ContentEditor({ value, onChange, onUpload, uploading = false, fi
   const errorFor = (key: string) => fieldErrors[`content.${key}`]?.[0] ?? fieldErrors[key]?.[0];
   const fieldError = (key: string) => { const message = errorFor(key); return message ? <small className="tp-field-error" role="alert">{message}</small> : null; };
   const upload = async (file: File | undefined, purpose = value.type) => { if (!file) return; const id = await onUpload(file, purpose); set("assetId", id); };
-  return <section className="tp-content-editor" aria-label="活码内容编辑器">
-    <div className="tp-content-editor__header">
+  return <details className="tp-content-editor" aria-label="活码内容编辑器" open>
+    <summary className="tp-content-editor__header">
       <div>
         <span className="tp-content-editor__eyebrow">CONTENT PAYLOAD</span>
         <h2>{title}内容</h2>
       </div>
       <small className="tp-content-editor__hint">二维码只保存一个内容版本，发布后扫码页面只展示这里的内容。</small>
-    </div>
+    </summary>
     <div className="tp-content-types" role="tablist" aria-label="内容类型">
       {CONTENT_TYPES.map((type) => <button key={type} type="button" role="tab" aria-selected={type === value.type} className={type === value.type ? "is-active" : ""} onClick={() => onChange(emptyContent(type))}>{CONTENT_LABELS[type]}</button>)}
     </div>
@@ -32,5 +32,5 @@ export function ContentEditor({ value, onChange, onUpload, uploading = false, fi
       {value.type === "text" && <div className="tp-field-group"><label><span>标题（可选）</span><input value={value.title} onChange={(e) => set("title", e.target.value)} />{fieldError("title")}</label><label><span>正文</span><textarea maxLength={4000} value={value.text} onChange={(e) => set("text", e.target.value)} />{fieldError("text")}</label><small className="tp-character-count">{value.text.length}/4000</small></div>}
       {value.type === "contact" && <div className="tp-contact-grid">{([["firstName", "名"], ["lastName", "姓"], ["organization", "组织"], ["title", "职位"], ["phone", "电话"], ["email", "邮箱"], ["website", "网站"], ["address", "地址"]] as const).map(([key, label]) => <label key={key}><span>{label}</span><input type={key === "email" ? "email" : key === "website" ? "url" : "text"} value={value[key]} onChange={(e) => set(key, e.target.value)} />{fieldError(key)}</label>)}<label><span>备注（可选）</span><textarea value={value.note} onChange={(e) => set("note", e.target.value)} />{fieldError("note")}</label></div>}
     </div>
-  </section>;
+  </details>;
 }

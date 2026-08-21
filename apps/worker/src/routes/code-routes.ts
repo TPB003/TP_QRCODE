@@ -47,7 +47,7 @@ const eventSchema = z.object({
 type CodeRow = {
   id: string; owner_id: string; slug: string; title: string; content_type: string;
   draft_content_json: string; draft_render_json: string; revision: number; status: "active" | "paused" | "deleted";
-  published_version_id: string | null; created_at: string; updated_at: string; deleted_at: string | null;
+  published_version_id: string | null; published_version: number | null; created_at: string; updated_at: string; deleted_at: string | null;
 };
 type VersionRow = { id: string; code_id: string; version: number; revision: number; content_json: string; render_json: string; created_at: string; published_at: string };
 
@@ -92,11 +92,11 @@ function codePayload(row: CodeRow) {
     id: row.id, slug: row.slug, title: row.title, contentType: row.content_type,
     content: jsonParse<ActiveContent>(row.draft_content_json, { type: "text", title: "", text: "" }),
     render: jsonParse<QrRenderConfig>(row.draft_render_json, defaultRender()), revision: row.revision,
-    status: row.status, publishedVersionId: row.published_version_id, createdAt: row.created_at, updatedAt: row.updated_at,
+    status: row.status, publishedVersionId: row.published_version_id, publishedVersion: row.published_version ?? null, createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
 async function ownedCode(context: AppContext, id: string, ownerId: string): Promise<CodeRow | null> {
-  return context.env.DB.prepare("SELECT * FROM qr_codes WHERE id = ? AND owner_id = ? AND deleted_at IS NULL LIMIT 1").bind(id, ownerId).first<CodeRow>();
+  return context.env.DB.prepare("SELECT c.*, (SELECT v.version FROM qr_code_versions v WHERE v.id = c.published_version_id LIMIT 1) AS published_version FROM qr_codes c WHERE c.id = ? AND c.owner_id = ? AND c.deleted_at IS NULL LIMIT 1").bind(id, ownerId).first<CodeRow>();
 }
 function referencedAssetIds(content: ActiveContent, render: QrRenderConfig): string[] {
   const ids: Array<string | null | undefined> = [render.logoAssetId];
@@ -127,7 +127,7 @@ async function publicCode(context: AppContext, slug: string): Promise<{ row: Cod
 
 codeRoutes.get("/codes", async (c) => {
   const user = await currentUser(c); if (!user) return apiError(c, 401, "UNAUTHORIZED", "请先登录");
-  const rows = await c.env.DB.prepare("SELECT * FROM qr_codes WHERE owner_id = ? AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 200").bind(user.id).all<CodeRow>();
+  const rows = await c.env.DB.prepare("SELECT c.*, (SELECT v.version FROM qr_code_versions v WHERE v.id = c.published_version_id LIMIT 1) AS published_version FROM qr_codes c WHERE c.owner_id = ? AND c.deleted_at IS NULL ORDER BY c.updated_at DESC LIMIT 200").bind(user.id).all<CodeRow>();
   return c.json({ data: { items: rows.results.map(codePayload), nextCursor: null } });
 });
 

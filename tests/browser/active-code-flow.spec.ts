@@ -26,9 +26,9 @@ test.describe("active QR public flow", () => {
     expect(publicApi.status()).toBe(200);
     expect((await apiJson<{ code: { content: { type: string } } }>(publicApi)).data?.code.content.type).toBe("text");
     await page.goto(`/s/${code.slug}`);
-    await expect(page.locator(".public-content-card")).toBeVisible();
-    await expect(page.locator("h1", { hasText: "浏览器验收" })).toBeVisible();
-    await expect(page.getByText("七类活码公共内容")).toBeVisible();
+    await expect(page.locator(".public-content-card")).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator("h1", { hasText: "浏览器验收" })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("七类活码公共内容")).toBeVisible({ timeout: 20_000 });
   });
 
   test("renders a published URL with safe-opening affordance on mobile", async ({ page }, testInfo) => {

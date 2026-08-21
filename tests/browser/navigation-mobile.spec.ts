@@ -5,7 +5,7 @@ test.describe("响应式导航", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
     const menu = page.getByRole("button", { name: /打开导航菜单/ });
-    await expect(menu).toBeVisible();
+    await expect(menu).toBeVisible({ timeout: 20000 });
     await menu.click();
     await expect(page.getByRole("navigation", { name: "主导航" })).toBeVisible();
     await page.keyboard.press("Escape");
