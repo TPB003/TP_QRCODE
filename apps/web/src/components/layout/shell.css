@@ -27,9 +27,12 @@
 .app-topbar > div { display: flex; align-items: center; gap: 12px; }
 .app-topbar > div a,
 .app-topbar > div button { display: flex; align-items: center; gap: 7px; margin-left: 26px; border: 0; background: transparent; color: rgba(242, 239, 232, 0.66); text-decoration: none; cursor: pointer; }
+.app-topbar__account > span { max-width: min(34vw, 280px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .app-topbar svg { width: 21px; }
 .project-topbar { justify-content: flex-start; gap: 26px; font-family: var(--font-mono); }
 .project-topbar > span { margin-left: auto; color: rgba(242, 239, 232, 0.54); font-size: 11px; }
+.project-topbar__account { display: flex; align-items: center; gap: 6px; margin-left: 18px !important; white-space: nowrap; }
+.project-topbar__account svg { width: 18px; }
 
 .app-sidebar,
 .project-sidebar {
@@ -41,6 +44,8 @@
   width: 176px;
   background: var(--stage);
   color: var(--paper);
+  display: flex;
+  flex-direction: column;
 }
 
 .app-sidebar nav,
@@ -57,6 +62,7 @@
 .app-shell__content,
 .project-shell__content { min-height: 100vh; margin-left: 176px; padding-top: 64px; }
 .route-loading { display: grid; min-height: 100vh; place-items: center; background: var(--paper); color: var(--stage); font-family: var(--font-mono); }
+.shell-account-card { display: none; }
 
 @media (max-width: 860px) {
   .app-sidebar,
@@ -96,10 +102,14 @@
 
 @media (max-width: 860px) {
   .app-topbar, .project-topbar { height: 60px; padding: 0 16px; }
-  .app-topbar__account { display: none !important; }
+  .app-topbar__account { display: flex !important; max-width: min(42vw, 160px); gap: 6px; }
+  .app-topbar__account > span { max-width: 112px; font-size: 12px; }
+  .app-topbar__account > button { display: none; }
   .project-topbar { gap: 12px; }
   .project-topbar > strong { font-size: 14px; }
-  .project-topbar > span { display: none; }
+  .project-topbar__brand { display: none; }
+  .project-topbar__account { display: flex !important; max-width: 38vw; overflow: hidden; margin-left: auto !important; text-overflow: ellipsis; }
+  .project-topbar__account svg { flex: 0 0 auto; }
   .shell-menu-button { display: inline-flex; margin-left: auto; }
   .app-sidebar, .project-sidebar {
     top: 60px;
@@ -128,6 +138,23 @@
   .shell-drawer-backdrop { display: block; position: fixed; inset: 60px 0 0; z-index: 19; border: 0; background: rgba(8,11,13,.52); cursor: pointer; }
   .app-sidebar, .project-sidebar { z-index: 20; }
   .app-shell__content, .project-shell__content { padding-top: 60px; padding-bottom: 24px; }
+  .shell-account-card {
+    display: grid;
+    gap: 12px;
+    margin: auto 12px 16px;
+    padding: 14px;
+    border: 1px solid rgba(242, 239, 232, 0.2);
+    border-radius: 8px;
+    background: rgba(242, 239, 232, 0.08);
+    color: var(--paper);
+  }
+  .shell-account-card__identity { display: flex; min-width: 0; align-items: center; gap: 10px; }
+  .shell-account-card__identity > svg { flex: 0 0 auto; width: 22px; }
+  .shell-account-card__identity > div { display: grid; min-width: 0; gap: 3px; }
+  .shell-account-card__identity strong { font-size: 14px; }
+  .shell-account-card__identity span { overflow: hidden; color: rgba(242, 239, 232, 0.68); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+  .shell-account-card__logout { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(242, 239, 232, 0.36); border-radius: 6px; background: transparent; color: var(--paper); font-weight: 700; cursor: pointer; }
+  .shell-account-card__logout:hover, .shell-account-card__logout:focus-visible { border-color: var(--paper); background: rgba(242, 239, 232, 0.12); }
 }
 
 @media (prefers-reduced-motion: reduce) {

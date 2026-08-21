@@ -28,6 +28,7 @@ export default defineConfig({
       wrangler: { configPath: "./apps/worker/wrangler.jsonc" },
     }),
     include: ["tests/security/worker-active-codes*.test.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.wrangler/**", "**/tmp/**", "**/output/**", "**/archive/**"],
     reporters: ["default"],
     setupFiles: ["tests/integration/setup.ts"],
     testTimeout: 20000,

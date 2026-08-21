@@ -10,6 +10,7 @@ export interface CodeSummary {
   contentType: ActiveContent["type"];
   status: "active" | "paused" | "deleted";
   revision: number;
+  publishedVersion?: number | null;
   content: ActiveContent;
   render: QrRenderConfig;
   publishedVersionId: string | null;

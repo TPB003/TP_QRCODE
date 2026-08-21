@@ -19,6 +19,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["tests/setup.ts"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/.wrangler/**", "**/tmp/**", "**/output/**", "**/archive/**"],
     coverage: {
       reporter: ["text", "html"],
     },

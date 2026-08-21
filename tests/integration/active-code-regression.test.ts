@@ -6,7 +6,7 @@ type Envelope<T = Record<string, unknown>> = {
   error?: { code?: string; message?: string; fieldErrors?: Record<string, string[]> };
 };
 type Cookie = string;
-type Code = { id: string; slug: string; revision: number; title: string; content: Record<string, unknown>; render?: Record<string, unknown> };
+type Code = { id: string; slug: string; revision: number; publishedVersion?: number | null; title: string; content: Record<string, unknown>; render?: Record<string, unknown> };
 
 async function json<T extends Envelope = Envelope>(response: Response): Promise<T> {
   return await response.json();
@@ -157,5 +157,35 @@ describe("active code regression contracts", () => {
     const changedCode = (await json<{ data: Code }>(changed)).data;
     if (!changedCode) throw new Error("更新设置没有返回 data");
     expect(changedCode.revision).toBe(code.revision + 1);
+  });
+
+  it("keeps the published version number separate and current after each release", async () => {
+    const cookie = await login("versions");
+    const code = await createCode(cookie);
+
+    const firstPublish = await publish(cookie, code);
+    expect(firstPublish.status).toBe(200);
+    const firstBody = (await json<{ data: { version: { version: number; revision: number } } }>(firstPublish)).data;
+    expect(firstBody?.version.version).toBe(1);
+    const firstRead = await SELF.fetch(`http://local/api/codes/${code.id}`, { headers: { Cookie: cookie } });
+    expect((await json<{ data: Code }>(firstRead)).data?.publishedVersion).toBe(1);
+
+    const changed = await SELF.fetch(`http://local/api/codes/${code.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Cookie: cookie },
+      body: JSON.stringify({ revision: code.revision, title: "第二版活码" }),
+    });
+    expect(changed.status).toBe(200);
+    const changedCode = (await json<{ data: Code }>(changed)).data;
+    if (!changedCode) throw new Error("版本回归更新没有返回 data");
+
+    const secondPublish = await publish(cookie, changedCode);
+    expect(secondPublish.status).toBe(200);
+    const secondBody = (await json<{ data: { version: { version: number; revision: number } } }>(secondPublish)).data;
+    expect(secondBody?.version.version).toBe(2);
+    const secondRead = await SELF.fetch(`http://local/api/codes/${code.id}`, { headers: { Cookie: cookie } });
+    const secondCode = (await json<{ data: Code }>(secondRead)).data;
+    expect(secondCode?.publishedVersion).toBe(2);
+    expect(secondCode?.revision).toBe(changedCode.revision);
   });
 });

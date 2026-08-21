@@ -29,3 +29,6 @@ The Playwright configuration starts Vite and Wrangler through
 `scripts/start-test-servers.mjs` as independent processes. This keeps the
 browser gate stable on Windows; `npm run dev` remains the interactive shortcut
 for local manual work.
+
+The user-facing acceptance matrix, severity definitions, and manual black-box
+pass are documented in [`docs/qa-ux-acceptance.md`](qa-ux-acceptance.md).

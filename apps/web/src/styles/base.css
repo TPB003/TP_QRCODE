@@ -98,6 +98,12 @@ a {
 .login-divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 -4px; color: var(--muted); font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; }
 .login-divider::before, .login-divider::after { height: 1px; flex: 1; background: var(--hairline); content: ""; }
 
+@media (max-width: 700px) {
+  .login-page { min-width: 0; overflow-x: hidden; padding: 24px 16px; }
+  .login-page > section { width: 100%; min-width: 0; margin-top: 8vh; padding: 28px 22px; }
+  .login-page h1 { font-size: clamp(32px, 10vw, 42px); }
+}
+
 .logo-mark {
   display: inline-flex;
   align-items: center;

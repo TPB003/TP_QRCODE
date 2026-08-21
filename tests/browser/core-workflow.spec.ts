@@ -53,7 +53,7 @@ test.describe("TP QR 本地核心流程", () => {
     await page.getByRole("button", { name: "保存草稿" }).click();
     await expect(page.getByText("草稿已保存", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "发布" }).click();
-    await expect(page.getByText("已发布，新版本立即生效", { exact: true })).toBeVisible();
+    await expect(page.getByText(/已发布(?: V\d+)?，新版本立即生效/)).toBeVisible();
 
     if (testInfo.project.name === "mobile") {
       await page.evaluate(() => {
@@ -105,7 +105,7 @@ test.describe("TP QR 本地核心流程", () => {
     await page.getByRole("button", { name: "保存草稿" }).click();
     await expect(page.getByText("草稿已保存", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "发布" }).click();
-    await expect(page.getByText("已发布，新版本立即生效", { exact: true })).toBeVisible();
+    await expect(page.getByText(/已发布(?: V\d+)?，新版本立即生效/)).toBeVisible();
 
     const updated = (await json<Code>(await page.request.get(`/api/codes/${code.id}`))).data;
     const publicResponse = await page.request.get(`/api/public/${updated?.slug}`);
