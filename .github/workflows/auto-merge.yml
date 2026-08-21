@@ -11,6 +11,7 @@ on:
 # checks out pull-request code, so the write token is not exposed to untrusted
 # workflow changes from forks.
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -30,6 +31,15 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const run = context.payload.workflow_run;
+            const dispatchMainCI = async () => {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'ci.yml',
+                ref: 'main',
+              });
+              core.info('Dispatched main CI after a token-authenticated merge');
+            };
             const associated = await github.paginate(
               github.rest.repos.listPullRequestsAssociatedWithCommit,
               { owner, repo, commit_sha: run.head_sha },
@@ -73,6 +83,7 @@ jobs:
                   core.setFailed(`Unable to merge PR #${pull.number}: ${merged.data.message ?? 'merge was not completed'}`);
                 } else {
                   core.info(`Merged PR #${pull.number} after successful CI`);
+                  await dispatchMainCI();
                 }
                 continue;
               }
@@ -104,6 +115,7 @@ jobs:
                     core.setFailed(`Unable to merge PR #${pull.number}: ${merged.data.message ?? error.message}`);
                   } else {
                     core.info(`Merged PR #${pull.number} after auto-merge became clean`);
+                    await dispatchMainCI();
                   }
                 } else {
                   core.setFailed(`Unable to enable auto-merge for PR #${pull.number}: ${error.message}`);
