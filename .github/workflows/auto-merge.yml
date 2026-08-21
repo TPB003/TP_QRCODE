@@ -11,6 +11,7 @@ on:
 # checks out pull-request code, so the write token is not exposed to untrusted
 # workflow changes from forks.
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -24,12 +25,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Enable squash auto-merge for trusted PRs
+      - name: Merge or queue trusted pull requests
         uses: actions/github-script@v7
         with:
           script: |
             const { owner, repo } = context.repo;
             const run = context.payload.workflow_run;
+            const dispatchMainCI = async () => {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: 'ci.yml',
+                ref: 'main',
+              });
+              core.info('Dispatched main CI after a token-authenticated merge');
+            };
             const associated = await github.paginate(
               github.rest.repos.listPullRequestsAssociatedWithCommit,
               { owner, repo, commit_sha: run.head_sha },
@@ -44,6 +54,7 @@ jobs:
               );
 
               if (
+                pull.state !== 'open' ||
                 pull.base?.ref !== 'main' ||
                 pull.draft ||
                 headRepo !== `${owner}/${repo}` ||
@@ -51,6 +62,29 @@ jobs:
                 optedOut
               ) {
                 core.info(`Skipping PR #${pull.number}: not eligible for automatic merge`);
+                continue;
+              }
+
+              const details = await github.rest.pulls.get({ owner, repo, pull_number: pull.number });
+              if (details.data.head.sha !== run.head_sha) {
+                core.info(`Skipping PR #${pull.number}: CI result is for an older commit`);
+                continue;
+              }
+
+              if (details.data.mergeable_state === 'clean') {
+                const merged = await github.rest.pulls.merge({
+                  owner,
+                  repo,
+                  pull_number: pull.number,
+                  sha: run.head_sha,
+                  merge_method: 'squash',
+                });
+                if (!merged.data.merged) {
+                  core.setFailed(`Unable to merge PR #${pull.number}: ${merged.data.message ?? 'merge was not completed'}`);
+                } else {
+                  core.info(`Merged PR #${pull.number} after successful CI`);
+                  await dispatchMainCI();
+                }
                 continue;
               }
 
@@ -68,7 +102,24 @@ jobs:
                 );
                 core.info(`Auto-merge enabled for PR #${pull.number}`);
               } catch (error) {
-                core.setFailed(`Unable to enable auto-merge for PR #${pull.number}: ${error.message}`);
+                const refreshed = await github.rest.pulls.get({ owner, repo, pull_number: pull.number });
+                if (refreshed.data.head.sha === run.head_sha && refreshed.data.mergeable_state === 'clean') {
+                  const merged = await github.rest.pulls.merge({
+                    owner,
+                    repo,
+                    pull_number: pull.number,
+                    sha: run.head_sha,
+                    merge_method: 'squash',
+                  });
+                  if (!merged.data.merged) {
+                    core.setFailed(`Unable to merge PR #${pull.number}: ${merged.data.message ?? error.message}`);
+                  } else {
+                    core.info(`Merged PR #${pull.number} after auto-merge became clean`);
+                    await dispatchMainCI();
+                  }
+                } else {
+                  core.setFailed(`Unable to enable auto-merge for PR #${pull.number}: ${error.message}`);
+                }
               }
             }
 
