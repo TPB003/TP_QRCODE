@@ -10,6 +10,7 @@
 - [ ] README is updated, or this change is documented as README-neutral.
 - [ ] Visual changes refresh `assets/open/homepage.png`.
 - [ ] New commands, environment variables, auth, or deployment changes are documented.
+- [ ] Automatic merge is appropriate, or the `no-auto-merge` label is applied.
 
 ## Security and configuration
 
