@@ -9,7 +9,12 @@ export default defineConfig({
   plugins: [cloudflareTest(async () => ({
     main: "apps/worker/src/index.ts",
     wrangler: { configPath: "./apps/worker/wrangler.jsonc" },
-    miniflare: { bindings: { TEST_MIGRATIONS: await readD1Migrations(path.resolve(projectRoot, "infra/cloudflare/migrations")) } },
+    miniflare: {
+      bindings: {
+        ENVIRONMENT: "test",
+        TEST_MIGRATIONS: await readD1Migrations(path.resolve(projectRoot, "infra/cloudflare/migrations")),
+      },
+    },
   }))],
   resolve: {
     alias: {

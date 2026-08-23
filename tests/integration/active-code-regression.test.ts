@@ -56,7 +56,36 @@ async function publish(cookie: Cookie, code: Pick<Code, "id" | "revision">): Pro
 describe("active code regression contracts", () => {
   beforeAll(async () => {
     const database = (env as unknown as { DB: D1Database }).DB;
-    await database.exec("DELETE FROM qr_access_events; DELETE FROM analytics_daily_codes; DELETE FROM qr_code_assets; DELETE FROM qr_code_versions; DELETE FROM qr_codes;");
+    await database.exec("DELETE FROM qr_access_events; DELETE FROM analytics_daily_codes; DELETE FROM qr_code_assets; DELETE FROM qr_code_versions; DELETE FROM qr_codes; DELETE FROM rate_limits;");
+  });
+
+  it("limits verification-code requests by IP without blocking another IP", async () => {
+    const sharedIp = "198.51.100.77";
+    for (let index = 0; index < 20; index += 1) {
+      const response = await SELF.fetch("http://local/api/auth/request-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "CF-Connecting-IP": sharedIp },
+        body: JSON.stringify({ email: `ip-limit-${index}@regression.tpqr.test` }),
+      });
+      expect(response.status).toBe(200);
+    }
+    const blocked = await SELF.fetch("http://local/api/auth/request-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CF-Connecting-IP": sharedIp },
+      body: JSON.stringify({ email: "ip-limit-blocked@regression.tpqr.test" }),
+    });
+    expect(blocked.status).toBe(429);
+
+    const otherIp = await SELF.fetch("http://local/api/auth/request-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "CF-Connecting-IP": "198.51.100.78" },
+      body: JSON.stringify({ email: "ip-limit-other@regression.tpqr.test" }),
+    });
+    expect(otherIp.status).toBe(200);
+
+    const database = (env as unknown as { DB: D1Database }).DB;
+    const keys = await database.prepare("SELECT rate_key FROM rate_limits").all<{ rate_key: string }>();
+    expect(keys.results.every(({ rate_key }) => !/ip-limit|198\.51\.100/u.test(rate_key))).toBe(true);
   });
 
   it("records scan and view events idempotently across retries", async () => {
@@ -187,5 +216,21 @@ describe("active code regression contracts", () => {
     const secondCode = (await json<{ data: Code }>(secondRead)).data;
     expect(secondCode?.publishedVersion).toBe(2);
     expect(secondCode?.revision).toBe(changedCode.revision);
+  });
+
+  it("allows only one successful publish for a concurrent revision", async () => {
+    const cookie = await login("concurrent-publish");
+    const code = await createCode(cookie);
+    const responses = await Promise.all([publish(cookie, code), publish(cookie, code)]);
+    expect(responses.filter((response) => response.status === 200)).toHaveLength(1);
+    expect(responses.filter((response) => response.status === 409)).toHaveLength(1);
+
+    const versions = await SELF.fetch(`http://local/api/codes/${code.id}/versions`, { headers: { Cookie: cookie } });
+    expect(versions.status).toBe(200);
+    const versionItems = (await json<{ data: { items: Array<{ version: number }> } }>(versions)).data?.items ?? [];
+    expect(versionItems).toHaveLength(1);
+    expect(versionItems[0]?.version).toBe(1);
+    const current = await SELF.fetch(`http://local/api/codes/${code.id}`, { headers: { Cookie: cookie } });
+    expect((await json<{ data: Code }>(current)).data?.publishedVersion).toBe(1);
   });
 });

@@ -15,14 +15,14 @@ const globalNavigation = [
 
 export function AppShell({ children }: PropsWithChildren) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userLabel, setUserLabel] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     void api.me().then((user) => {
-      if (active) setUserEmail(user.email);
+      if (active) setUserLabel(user.displayName || user.email);
     }).catch(() => {
-      if (active) setUserEmail(null);
+      if (active) setUserLabel(null);
     });
     return () => { active = false; };
   }, []);
@@ -48,7 +48,7 @@ export function AppShell({ children }: PropsWithChildren) {
     >
       <header className="app-topbar">
         <Link to="/"><LogoMark inverted /></Link>
-        <div className="app-topbar__account" aria-label="个人账号"><UserCircle2 /><span>{userEmail ?? "个人账号"}</span><button type="button" onClick={() => void handleLogout()}><LogOut />退出登录</button></div>
+        <div className="app-topbar__account" aria-label="个人账号"><UserCircle2 /><span>{userLabel ?? "个人账号"}</span><button type="button" onClick={() => void handleLogout()}><LogOut />退出登录</button></div>
         <button className="shell-menu-button" type="button" aria-label="打开工作台导航" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
           <span aria-hidden="true" /><span aria-hidden="true" /><span aria-hidden="true" />
         </button>
@@ -61,7 +61,7 @@ export function AppShell({ children }: PropsWithChildren) {
           ))}
         </nav>
         <div className="shell-account-card" aria-label="个人账号">
-          <div className="shell-account-card__identity"><UserCircle2 aria-hidden="true" /><div><strong>个人账号</strong><span>{userEmail ?? "正在读取账号"}</span></div></div>
+          <div className="shell-account-card__identity"><UserCircle2 aria-hidden="true" /><div><strong>个人账号</strong><span>{userLabel ?? "正在读取账号"}</span></div></div>
           <button className="shell-account-card__logout" type="button" onClick={() => void handleLogout()}><LogOut aria-hidden="true" />退出登录</button>
         </div>
       </aside>

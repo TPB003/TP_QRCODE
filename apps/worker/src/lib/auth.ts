@@ -23,6 +23,8 @@ interface SessionUserRow {
   user_id: string;
   email: string;
   user_created_at: string;
+  display_name: string | null;
+  login_provider: "google" | "github" | null;
 }
 
 function normalizeEmail(email: string): string {
@@ -104,7 +106,7 @@ export async function verifyCode(env: Bindings, email: string, code: string): Pr
   )
     .bind(userId, normalizedEmail, timestamp, timestamp)
     .run();
-  const user = await env.DB.prepare("SELECT id, email, created_at AS createdAt FROM users WHERE email = ?")
+  const user = await env.DB.prepare("SELECT id, email, created_at AS createdAt, email AS displayName, 'email' AS loginProvider FROM users WHERE email = ?")
     .bind(normalizedEmail)
     .first<AuthUser>();
   if (!user) throw new Error("AUTH_USER_CREATE_FAILED");
@@ -126,7 +128,7 @@ export async function currentUser(context: AppContext): Promise<AuthUser | null>
   const sessionId = parseCookies(context.req.header("Cookie"))[SESSION_COOKIE];
   if (!sessionId) return null;
   const row = await context.env.DB.prepare(
-    "SELECT s.id AS session_id, s.expires_at AS session_expires_at, u.id AS user_id, u.email, u.created_at AS user_created_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.id = ? AND s.revoked_at IS NULL LIMIT 1",
+    "SELECT s.id AS session_id, s.expires_at AS session_expires_at, u.id AS user_id, u.email, u.created_at AS user_created_at, i.display_name, i.provider AS login_provider FROM sessions s JOIN users u ON u.id = s.user_id LEFT JOIN auth_identities i ON i.id = (SELECT id FROM auth_identities WHERE user_id = u.id ORDER BY last_login_at DESC LIMIT 1) WHERE s.id = ? AND s.revoked_at IS NULL LIMIT 1",
   )
     .bind(sessionId)
     .first<SessionUserRow>();
@@ -134,7 +136,13 @@ export async function currentUser(context: AppContext): Promise<AuthUser | null>
     if (row) await context.env.DB.prepare("UPDATE sessions SET revoked_at = ? WHERE id = ?").bind(nowIso(), sessionId).run();
     return null;
   }
-  return { id: row.user_id, email: row.email, createdAt: row.user_created_at };
+  return {
+    id: row.user_id,
+    email: row.email,
+    createdAt: row.user_created_at,
+    displayName: row.display_name ?? row.email,
+    loginProvider: row.login_provider ?? "email",
+  };
 }
 
 export async function requireUser(context: AppContext): Promise<AuthUser | null> {

@@ -12,13 +12,13 @@ export function ProjectShell({ children }: PropsWithChildren) {
   const navigate = useNavigate();
   const [authChecked, setAuthChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userLabel, setUserLabel] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     void api.me().then((user) => {
       if (active) {
-        setUserEmail(user.email);
+        setUserLabel(user.displayName || user.email);
         setAuthChecked(true);
       }
     }).catch(() => navigate(`/login?next=${encodeURIComponent(`${location.pathname}${location.search}${location.hash}`)}`, { replace: true }));
@@ -59,7 +59,7 @@ export function ProjectShell({ children }: PropsWithChildren) {
         <Link to="/"><LogoMark inverted compact /></Link>
         <strong>项目工作台</strong>
         <span className="project-topbar__brand">TP QR PAPER WORKBENCH</span>
-        <span className="project-topbar__account" aria-label="个人账号"><UserCircle2 aria-hidden="true" />{userEmail ?? "个人账号"}</span>
+        <span className="project-topbar__account" aria-label="个人账号"><UserCircle2 aria-hidden="true" />{userLabel ?? "个人账号"}</span>
         <button className="shell-menu-button" type="button" aria-label="打开项目导航" aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>
           <span aria-hidden="true" /><span aria-hidden="true" /><span aria-hidden="true" />
         </button>
@@ -72,7 +72,7 @@ export function ProjectShell({ children }: PropsWithChildren) {
           ))}
         </nav>
         <div className="shell-account-card" aria-label="个人账号">
-          <div className="shell-account-card__identity"><UserCircle2 aria-hidden="true" /><div><strong>个人账号</strong><span>{userEmail ?? "正在读取账号"}</span></div></div>
+          <div className="shell-account-card__identity"><UserCircle2 aria-hidden="true" /><div><strong>个人账号</strong><span>{userLabel ?? "正在读取账号"}</span></div></div>
           <button className="shell-account-card__logout" type="button" onClick={() => void handleLogout()}><LogOut aria-hidden="true" />退出登录</button>
         </div>
       </aside>

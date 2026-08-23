@@ -31,7 +31,7 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:fixtures": "node scripts/generate-test-fixtures.mjs",
-    "test:browser": "npm run setup:local && npm run test:fixtures && playwright test --project=chromium && playwright test --project=mobile",
+    "test:browser": "npm run setup:local && npm run test:fixtures && playwright test --project=chromium --project=mobile",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "check:local": "npm run lint && npm run typecheck && npm run test && npm run build && npm run test:browser",
     "check:all": "npm run check:local && npm run test:security && npm run check:opensource",
@@ -92,6 +92,6 @@
     "typescript-eslint": "latest",
     "vite": "latest",
     "vitest": "latest",
-    "wrangler": "4.113.0"
+    "wrangler": "^4.125.0"
   }
 }

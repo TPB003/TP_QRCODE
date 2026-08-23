@@ -25,7 +25,7 @@ and no personal Cloudflare resources.
   URL, and text presentation.
 - Camera, image-upload, and drag-and-drop QR decoder for TP QR slugs, URLs,
   text, and vCards.
-- Scan, download, playback, and external-link events with basic rate limiting.
+- Scan, download, playback, and external-link events with idempotency and rate limiting.
 - Local Cloudflare D1/R2 simulation, Worker integration tests, and Playwright
   desktop/mobile acceptance tests.
 
@@ -122,9 +122,10 @@ workers.dev/D1/R2 procedure.
 
 ## Google and GitHub login
 
-The login page currently exposes email OTP and GitHub login. The Google OAuth
-implementation remains in the Worker/API, but its button is temporarily hidden
-until the provider configuration and UI are re-enabled. Configure these exact
+The login page currently exposes email OTP and GitHub login. A GitHub login
+shows the provider username in the account menu; email login shows the email.
+The Google OAuth implementation remains in the Worker/API, but its button is
+temporarily hidden until the provider configuration and UI are re-enabled. Configure these exact
 production callbacks in the provider consoles:
 
 ```text
@@ -133,9 +134,9 @@ https://tpqrcode.shop/api/auth/github/callback
 ```
 
 Google uses `openid email profile`. GitHub uses a GitHub App user-authorization
-flow with basic profile and verified-email access only. A verified provider
-email is automatically linked to an existing TP QR account; provider tokens
-are never stored. Local development should use separate provider applications
+flow with PKCE, basic profile, and verified-email access only. A verified
+provider email is automatically linked to an existing TP QR account; provider
+tokens are never stored. Local development should use separate provider applications
 with `http://127.0.0.1:8787/api/auth/{provider}/callback` callbacks. See
 [`docs/deployment-cloudflare.md`](docs/deployment-cloudflare.md).
 
@@ -152,11 +153,16 @@ npm run tpqr -- domain inspect tpqrcode.shop
 npm run tpqr -- oauth check
 ```
 
-Deploy only with a private configuration under ignored `tmp/`:
+Deploy only with a private configuration under ignored `tmp/`. The deploy command
+applies all pending D1 migrations, verifies that none remain, and then deploys:
 
 ```powershell
 npm run tpqr -- deploy --environment staging --config tmp/wrangler.staging.jsonc --dry-run
 ```
+
+For production, use `--confirm-production` and keep the `tmp/` configuration
+out of Git. Never put D1 IDs, R2 names, OAuth secrets, or Resend keys in the
+public template.
 
 See [`docs/cli.md`](docs/cli.md) for production preflight and release checks.
 

@@ -17,6 +17,31 @@ function run(command, commandArgs, options = {}) {
   if (result.status !== 0) throw new Error(`${command} exited with ${result.status ?? 1}`);
 }
 
+function runCapture(command, commandArgs) {
+  const result = spawnSync(command, commandArgs, {
+    cwd: root,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error) throw result.error;
+  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  if (result.status !== 0) {
+    process.stderr.write(output);
+    throw new Error(`${command} exited with ${result.status ?? 1}`);
+  }
+  return output;
+}
+
+function assertNoPendingMigrations(configPath) {
+  const output = runCapture("npx", ["wrangler", "d1", "migrations", "list", "DB", "--remote", "--config", configPath]);
+  const pending = output.split(/\r?\n/u).filter((line) => /\b(?:pending|not applied)\b/iu.test(line));
+  if (pending.length > 0) {
+    throw new Error(`remote D1 still has pending migrations:\n${pending.join("\n")}`);
+  }
+  log("remote D1 migrations: all local migrations applied");
+}
+
 function commandAvailable(command) {
   const result = spawnSync(process.platform === "win32" ? "where" : "which", [command], { cwd: root, stdio: "ignore", shell: process.platform === "win32" });
   return result.status === 0;
@@ -94,6 +119,7 @@ async function deploy() {
   }
   run("npm", ["run", "build"]);
   run("npx", ["wrangler", "d1", "migrations", "apply", "DB", "--remote", "--config", configPath]);
+  assertNoPendingMigrations(configPath);
   run("npx", ["wrangler", "deploy", "--config", configPath]);
 }
 
