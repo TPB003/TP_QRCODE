@@ -3,7 +3,7 @@ import { requestCodeSchema, verifyCodeSchema } from "@shared/schemas/auth";
 import type { Bindings } from "@worker/bindings";
 import { attachSessionCookie, currentUser, isDevAuth, issueCode, revokeSession, verifyCode } from "@worker/lib/auth";
 import { completeOAuth, createAuthorizationUrl, enabledProviders, OAuthError } from "@worker/lib/oauth";
-import { apiError, consumeRateLimit, readJson, type AppContext } from "@worker/lib/http";
+import { apiError, consumeRateLimit, hashValue, readJson, type AppContext } from "@worker/lib/http";
 
 export const authRoutes = new Hono<{ Bindings: Bindings }>();
 
@@ -20,7 +20,7 @@ for (const provider of ["google", "github"] as const) {
   authRoutes.get(`/${provider}/start`, async (context) => {
     try {
       const source = context.req.header("CF-Connecting-IP") ?? "unknown";
-      if (!(await consumeRateLimit(context.env.DB, `oauth:start:${provider}:${source}`, 20, 10 * 60))) {
+      if (!(await consumeRateLimit(context.env.DB, await hashValue(`oauth:start:${provider}:${source}`), 20, 10 * 60))) {
         return oauthFailure(context, "AUTH_OAUTH_RATE_LIMITED");
       }
       const url = await createAuthorizationUrl(context.env, provider, context.req.query("returnTo"));
@@ -32,7 +32,7 @@ for (const provider of ["google", "github"] as const) {
   authRoutes.get(`/${provider}/callback`, async (context) => {
     try {
       const source = context.req.header("CF-Connecting-IP") ?? "unknown";
-      if (!(await consumeRateLimit(context.env.DB, `oauth:callback:${provider}:${source}`, 20, 10 * 60))) {
+      if (!(await consumeRateLimit(context.env.DB, await hashValue(`oauth:callback:${provider}:${source}`), 20, 10 * 60))) {
         return oauthFailure(context, "AUTH_OAUTH_RATE_LIMITED");
       }
       const result = await completeOAuth(context.env, provider, context.req.query("code") ?? "", context.req.query("state") ?? "");
@@ -52,7 +52,18 @@ authRoutes.post("/request-code", async (context) => {
   const body = await readJson<unknown>(context);
   const parsed = requestCodeSchema.safeParse(body);
   if (!parsed.success) return apiError(context, 422, "VALIDATION_ERROR", "邮箱地址无效", { email: ["请输入有效邮箱地址"] });
-  if (!isDevAuth(context.env) && !(await consumeRateLimit(context.env.DB, `auth:${parsed.data.email.toLowerCase()}`, 5, 60 * 60))) return apiError(context, 429, "RATE_LIMITED", "验证码请求过于频繁，请稍后再试");
+  const emailKey = `auth:email:${parsed.data.email.toLowerCase()}`;
+  const ip = context.req.header("CF-Connecting-IP") ?? "unknown";
+  const ipKey = `auth:ip:${ip}`;
+  const emailAllowed = context.env.ENVIRONMENT === "development"
+    ? true
+    : await consumeRateLimit(context.env.DB, await hashValue(emailKey), 5, 60 * 60);
+  // Keep the local development adapter frictionless. Production/staging and
+  // the explicit test environment exercise the Cloudflare IP limit.
+  const ipAllowed = context.env.ENVIRONMENT === "development"
+    ? true
+    : await consumeRateLimit(context.env.DB, await hashValue(ipKey), 20, 60 * 60);
+  if (!emailAllowed || !ipAllowed) return apiError(context, 429, "RATE_LIMITED", "验证码请求过于频繁，请稍后再试");
   try {
     const result = await issueCode(context.env, parsed.data.email);
     return context.json({

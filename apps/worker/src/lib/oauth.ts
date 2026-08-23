@@ -18,6 +18,7 @@ interface OAuthStateRow {
 interface ProviderProfile {
   subject: string;
   email: string;
+  displayName: string | null;
 }
 
 export class OAuthError extends Error {
@@ -128,10 +129,13 @@ export async function createAuthorizationUrl(env: Bindings, provider: OAuthProvi
     });
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
   }
-  // GitHub Apps use fine-grained permissions configured on the App, not
-  // OAuth scopes or PKCE parameters. Keep the request aligned with GitHub's
-  // App web-authorization flow; state still protects the callback from CSRF.
-  const params = new URLSearchParams({ client_id: clientId, redirect_uri: redirectUri, state });
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    state,
+    code_challenge: challenge,
+    code_challenge_method: "S256",
+  });
   return `https://github.com/login/oauth/authorize?${params.toString()}`;
 }
 
@@ -194,15 +198,20 @@ async function exchangeGoogle(env: Bindings, code: string, state: OAuthStateRow)
   const subject = asString(tokenInfo.sub ?? claims.sub) ?? "";
   const email = (asString(tokenInfo.email) ?? "").trim().toLowerCase();
   if (!subject || !email || !isEmail(email)) throw new OAuthError("AUTH_PROVIDER_RESPONSE_INVALID");
-  return { subject, email };
+  const displayName = asString(tokenInfo.name)?.trim() || null;
+  return { subject, email, displayName };
 }
 
-async function exchangeGitHub(env: Bindings, code: string): Promise<ProviderProfile> {
+export function githubTokenExchangeParams(clientId: string, clientSecret: string, code: string, verifier: string, redirectUri: string): URLSearchParams {
+  return new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, code_verifier: verifier, redirect_uri: redirectUri });
+}
+
+async function exchangeGitHub(env: Bindings, code: string, state: OAuthStateRow): Promise<ProviderProfile> {
   const { clientId, clientSecret } = requireProviderConfig(env, "github");
   const response = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, code, redirect_uri: callbackUri(env, "github") }),
+    body: githubTokenExchangeParams(clientId, clientSecret, code, state.code_verifier, callbackUri(env, "github")),
   });
   if (!response.ok) throw new OAuthError("AUTH_PROVIDER_EXCHANGE_FAILED");
   const token = asRecord(await response.json());
@@ -224,7 +233,8 @@ async function exchangeGitHub(env: Bindings, code: string): Promise<ProviderProf
   const email = (asString(selected?.email) ?? "").trim().toLowerCase();
   const subject = asString(user.id);
   if (!subject || !email || !isEmail(email)) throw new OAuthError("AUTH_PROVIDER_EMAIL_UNVERIFIED");
-  return { subject, email };
+  const displayName = asString(user.login)?.trim() || null;
+  return { subject, email, displayName };
 }
 
 async function userForIdentity(env: Bindings, provider: OAuthProvider, profile: ProviderProfile): Promise<AuthUser> {
@@ -241,16 +251,16 @@ async function userForIdentity(env: Bindings, provider: OAuthProvider, profile: 
     const existing = await env.DB.prepare("SELECT id FROM users WHERE email = ? LIMIT 1").bind(profile.email).first<{ id: string }>();
     if (!existing) throw new OAuthError("AUTH_USER_CREATE_FAILED");
     userId = existing.id;
-    await env.DB.prepare("INSERT INTO auth_identities (id, user_id, provider, provider_subject, email, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(provider, provider_subject) DO UPDATE SET last_login_at = excluded.last_login_at, email = excluded.email")
-      .bind(crypto.randomUUID(), userId, provider, profile.subject, profile.email, timestamp, timestamp)
+    await env.DB.prepare("INSERT INTO auth_identities (id, user_id, provider, provider_subject, email, display_name, created_at, last_login_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(provider, provider_subject) DO UPDATE SET last_login_at = excluded.last_login_at, email = excluded.email, display_name = excluded.display_name")
+      .bind(crypto.randomUUID(), userId, provider, profile.subject, profile.email, profile.displayName, timestamp, timestamp)
       .run();
   } else {
-    await env.DB.prepare("UPDATE auth_identities SET last_login_at = ?, email = ? WHERE provider = ? AND provider_subject = ?")
-      .bind(timestamp, profile.email, provider, profile.subject)
+    await env.DB.prepare("UPDATE auth_identities SET last_login_at = ?, email = ?, display_name = ? WHERE provider = ? AND provider_subject = ?")
+      .bind(timestamp, profile.email, profile.displayName, provider, profile.subject)
       .run();
   }
-  const user = await env.DB.prepare("SELECT id, email, created_at AS createdAt FROM users WHERE id = ? LIMIT 1")
-    .bind(userId)
+  const user = await env.DB.prepare("SELECT id, email, created_at AS createdAt, ? AS displayName, ? AS loginProvider FROM users WHERE id = ? LIMIT 1")
+    .bind(profile.displayName ?? profile.email, provider, userId)
     .first<AuthUser>();
   if (!user) throw new OAuthError("AUTH_USER_CREATE_FAILED");
   return user;
@@ -259,7 +269,7 @@ async function userForIdentity(env: Bindings, provider: OAuthProvider, profile: 
 export async function completeOAuth(env: Bindings, provider: OAuthProvider, code: string, state: string): Promise<{ user: AuthUser; sessionId: string; returnTo: string }> {
   if (!code || !state) throw new OAuthError("AUTH_OAUTH_STATE_INVALID");
   const stateRow = await consumeState(env, provider, state);
-  const profile = provider === "google" ? await exchangeGoogle(env, code, stateRow) : await exchangeGitHub(env, code);
+  const profile = provider === "google" ? await exchangeGoogle(env, code, stateRow) : await exchangeGitHub(env, code, stateRow);
   const user = await userForIdentity(env, provider, profile);
   return { user, sessionId: await createSession(env, user.id), returnTo: stateRow.return_to };
 }

@@ -53,6 +53,18 @@ npx wrangler whoami
 npm run tpqr -- deploy --environment production --config tmp/wrangler.production.jsonc --confirm-production
 ```
 
+The private file must reference paths relative to `tmp/`:
+
+```text
+../apps/worker/src/index.ts
+../dist
+../infra/cloudflare/migrations
+```
+
+The CLI applies pending migrations before deploying and fails if the remote
+database still reports a pending migration. This prevents a newer Worker from
+running against the old `0001`-only schema.
+
 Because Wrangler resolves paths relative to the config file, adjust the
 copied private file's paths to `../apps/worker/src/index.ts`, `../dist`, and
 `../infra/cloudflare/migrations` when it lives under `tmp/`. Alternatively,
@@ -92,8 +104,9 @@ http://127.0.0.1:8787/api/auth/github/callback
 ```
 
 Google requires `openid email profile` and a verified email. GitHub should use
-a GitHub App user authorization flow with only basic profile and email access;
-never request repository write permissions for login.
+a GitHub App user authorization flow with PKCE, only basic profile and email
+access, and no repository write permissions for login. The callback stores the
+GitHub username for account display but never stores provider tokens.
 
 ## Smoke test and rollback
 

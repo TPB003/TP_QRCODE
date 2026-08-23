@@ -47,7 +47,7 @@ const eventSchema = z.object({
 type CodeRow = {
   id: string; owner_id: string; slug: string; title: string; content_type: string;
   draft_content_json: string; draft_render_json: string; revision: number; status: "active" | "paused" | "deleted";
-  published_version_id: string | null; published_version: number | null; created_at: string; updated_at: string; deleted_at: string | null;
+  published_version_id: string | null; published_version: number | null; last_published_revision: number | null; created_at: string; updated_at: string; deleted_at: string | null;
 };
 type VersionRow = { id: string; code_id: string; version: number; revision: number; content_json: string; render_json: string; created_at: string; published_at: string };
 
@@ -211,9 +211,32 @@ codeRoutes.post("/codes/:codeId/publish", async (c) => {
   if (!(await assertOwnedAssets(c, content, render, user.id))) return apiError(c, 422, "UPLOAD_REJECTED", "内容引用了无权限的资源");
   const previous = await c.env.DB.prepare("SELECT COALESCE(MAX(version), 0) AS version FROM qr_code_versions WHERE code_id = ?").bind(row.id).first<{ version: number }>();
   const version = Number(previous?.version ?? 0) + 1; const versionId = crypto.randomUUID(); const publishedAt = nowIso();
-  await c.env.DB.prepare("INSERT INTO qr_code_versions (id, code_id, version, revision, content_json, render_json, created_at, published_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").bind(versionId, row.id, version, row.revision, JSON.stringify(content), JSON.stringify(render), publishedAt, publishedAt).run();
-  for (const assetId of referencedAssetIds(content, render)) await c.env.DB.prepare("INSERT OR IGNORE INTO qr_code_assets (code_id, version_id, asset_id, role) VALUES (?, ?, ?, 'content')").bind(row.id, versionId, assetId).run();
-  await c.env.DB.prepare("UPDATE qr_codes SET published_version_id = ?, status = 'active', updated_at = ? WHERE id = ? AND owner_id = ? AND revision = ?").bind(versionId, publishedAt, row.id, user.id, row.revision).run();
+  // Claim the revision and create the immutable snapshot in one D1 batch. The
+  // conditional INSERT only runs when the claim succeeded, so a concurrent
+  // update cannot leave an orphaned version or a success response pointing at
+  // a snapshot that is not publicly reachable.
+  const statements = [
+    c.env.DB.prepare("UPDATE qr_codes SET published_version_id = ?, last_published_revision = ?, status = 'active', updated_at = ? WHERE id = ? AND owner_id = ? AND revision = ? AND (last_published_revision IS NULL OR last_published_revision <> ?)")
+      .bind(versionId, row.revision, publishedAt, row.id, user.id, row.revision, row.revision),
+    c.env.DB.prepare("INSERT INTO qr_code_versions (id, code_id, version, revision, content_json, render_json, created_at, published_at) SELECT ?, id, ?, ?, ?, ?, ?, ? FROM qr_codes WHERE id = ? AND owner_id = ? AND revision = ? AND published_version_id = ?")
+      .bind(versionId, version, row.revision, JSON.stringify(content), JSON.stringify(render), publishedAt, publishedAt, row.id, user.id, row.revision, versionId),
+  ];
+  for (const assetId of referencedAssetIds(content, render)) {
+    statements.push(c.env.DB.prepare("INSERT OR IGNORE INTO qr_code_assets (code_id, version_id, asset_id, role) SELECT ?, ?, ?, 'content' FROM qr_code_versions WHERE id = ? AND code_id = ?")
+      .bind(row.id, versionId, assetId, versionId, row.id));
+  }
+  let results: D1Result[];
+  try {
+    results = await c.env.DB.batch(statements);
+  } catch (error) {
+    if (error instanceof Error && /UNIQUE constraint failed/u.test(error.message)) {
+      return apiError(c, 409, "REVISION_CONFLICT", "草稿已被其他操作发布，请刷新后重试");
+    }
+    throw error;
+  }
+  if ((results[0]?.meta.changes ?? 0) !== 1 || (results[1]?.meta.changes ?? 0) !== 1) {
+    return apiError(c, 409, "REVISION_CONFLICT", "草稿已被其他操作更新，请刷新后重试");
+  }
   return c.json({ data: { codeId: row.id, slug: row.slug, version: { id: versionId, version, revision: row.revision, publishedAt } } });
 });
 

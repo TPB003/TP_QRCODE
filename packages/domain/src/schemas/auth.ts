@@ -14,4 +14,6 @@ export const authUserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
   createdAt: z.string().datetime(),
+  displayName: z.string().trim().min(1).max(120).nullable().optional(),
+  loginProvider: z.enum(["email", "google", "github"]).nullable().optional(),
 });

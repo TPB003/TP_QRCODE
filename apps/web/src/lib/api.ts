@@ -66,9 +66,9 @@ export const api = {
     window.location.assign(`/api/auth/${provider}/start?returnTo=${encodeURIComponent(returnTo)}`);
   },
   requestCode: (email: string) => apiClient.post<{ accepted: boolean; expiresAt: string; testCode?: string }>("/api/auth/request-code", { email }),
-  verifyCode: (email: string, code: string) => apiClient.post<{ id: string; email: string; createdAt: string }>("/api/auth/verify-code", { email, code }),
+  verifyCode: (email: string, code: string) => apiClient.post<{ id: string; email: string; createdAt: string; displayName?: string | null; loginProvider?: "email" | "google" | "github" | null }>("/api/auth/verify-code", { email, code }),
   logout: () => apiClient.post<{ loggedOut: boolean }>("/api/auth/logout"),
-  me: () => apiClient.get<{ id: string; email: string; createdAt: string }>("/api/auth/me"),
+  me: () => apiClient.get<{ id: string; email: string; createdAt: string; displayName?: string | null; loginProvider?: "email" | "google" | "github" | null }>("/api/auth/me"),
   templates: () => apiClient.get<Array<{ key: string; label: string }>>("/api/templates"),
   projects: (query?: string) => apiClient.get<ProjectListResponse>(`/api/projects${query ? `?q=${encodeURIComponent(query)}` : ""}`),
   project: (projectId: string) => apiClient.get<ProjectResponse>(`/api/projects/${projectId}`),
