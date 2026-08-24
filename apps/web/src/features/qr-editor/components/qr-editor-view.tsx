@@ -80,6 +80,11 @@ export function QrEditorView() {
   const previewCloseRef = useRef<HTMLButtonElement | null>(null);
   const showNotice = (message: string, kind: NoticeKind = "success") => setNotice({ message, kind });
   useEffect(() => {
+    if (!notice || !code) return;
+    const timeout = window.setTimeout(() => setNotice(null), notice.kind === "error" ? 3200 : 1800);
+    return () => window.clearTimeout(timeout);
+  }, [notice, code]);
+  useEffect(() => {
     let active = true;
     void loadCode(projectId).then((result) => {
       if (!active) return;
@@ -148,7 +153,7 @@ export function QrEditorView() {
     };
   }, [code, content, render, title]);
   const isMobileShare = typeof window !== "undefined" && (window.matchMedia("(max-width: 768px)").matches || navigator.maxTouchPoints > 0);
-  if (!code && !notice) return <ProjectShell><main className="qr-editor-loading"><Loader2 className="spin" />加载活码…</main></ProjectShell>;
+  if (!code) return <ProjectShell><main className="qr-editor-loading" role={notice ? "alert" : "status"}>{notice ? notice.message : <><Loader2 className="spin" />加载活码…</>}</main></ProjectShell>;
   return <ProjectShell><main className="tp-qr-editor" style={{ backgroundImage: `linear-gradient(rgba(8, 11, 13, .94), rgba(8, 11, 13, .94)), url(${calibrationBackdrop})` }}>
     <div className="tp-qr-editor__workspace">
     <header className="tp-qr-editor__header"><div><span className="index-label">07 / ACTIVE QR</span><h1>活码工作台</h1><p>内容可更新，二维码保持不变。</p></div></header>

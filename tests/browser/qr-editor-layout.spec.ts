@@ -32,6 +32,11 @@ test.describe("QR editor workbench layout", () => {
     await expect(page.locator(".tp-qr-editor__stage-tabs")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "发布", exact: true })).toBeVisible();
 
+    await page.getByRole("button", { name: "保存草稿", exact: true }).click();
+    const savedNotice = page.getByText("草稿已保存", { exact: true });
+    await expect(savedNotice).toBeVisible();
+    await expect(savedNotice).toBeHidden({ timeout: 5000 });
+
     const viewport = await page.evaluate(() => ({
       width: window.innerWidth,
       height: window.innerHeight,
@@ -69,5 +74,15 @@ test.describe("QR editor workbench layout", () => {
     await expect(page.locator(".tp-publish-panel__actions")).toBeVisible();
     const viewport = await page.evaluate(() => ({ width: window.innerWidth, scrollWidth: document.documentElement.scrollWidth }));
     expect(viewport.scrollWidth).toBeLessThanOrEqual(viewport.width);
+  });
+
+  test("keeps initial load errors visible", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium", "desktop failure-state coverage");
+    await authenticate(page, `qr-load-error-${Date.now()}@active.tpqr.test`);
+    await page.goto("/app/codes/00000000-0000-4000-8000-000000000000/qr");
+    const error = page.getByRole("alert");
+    await expect(error).toContainText("活码不存在", { timeout: 20000 });
+    await page.waitForTimeout(3600);
+    await expect(error).toContainText("活码不存在");
   });
 });
