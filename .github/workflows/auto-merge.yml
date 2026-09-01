@@ -26,7 +26,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Merge or queue trusted pull requests
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
@@ -132,7 +132,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Disable auto-merge for opted-out pull requests
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const { owner, repo } = context.repo;
