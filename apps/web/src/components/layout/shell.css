@@ -102,13 +102,11 @@
 
 @media (max-width: 860px) {
   .app-topbar, .project-topbar { height: 60px; padding: 0 16px; }
-  .app-topbar__account { display: flex !important; max-width: min(42vw, 160px); gap: 6px; }
-  .app-topbar__account > span { max-width: 112px; font-size: 12px; }
-  .app-topbar__account > button { display: none; }
+  .app-topbar .app-topbar__account,
+  .project-topbar .project-topbar__account { display: none !important; }
   .project-topbar { gap: 12px; }
   .project-topbar > strong { font-size: 14px; }
   .project-topbar__brand { display: none; }
-  .project-topbar__account { display: flex !important; max-width: 38vw; overflow: hidden; margin-left: auto !important; text-overflow: ellipsis; }
   .project-topbar__account svg { flex: 0 0 auto; }
   .shell-menu-button { display: inline-flex; margin-left: auto; }
   .app-sidebar, .project-sidebar {

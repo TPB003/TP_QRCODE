@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, FileAudio, FileImage, FileText, FileVideo, Globe2, Plus, QrCode, Search, UserRound } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "@client/components/layout/app-shell";
@@ -59,10 +59,16 @@ export function DashboardView() {
   const [trend, setTrend] = useState<number[]>([0, 0]);
   const [scanTotals, setScanTotals] = useState<Record<string, number>>({});
   const [creating, setCreating] = useState(false);
+  const [createBusy, setCreateBusy] = useState(false);
   const [createNotice, setCreateNotice] = useState("");
   const [newName, setNewName] = useState("新建活码");
   const [newType, setNewType] = useState<CodeType>("text");
+  const createDialogRef = useRef<HTMLDivElement>(null);
+  const createNameRef = useRef<HTMLInputElement>(null);
+  const createTriggerRef = useRef<HTMLElement | null>(null);
+  const createBusyRef = useRef(false);
   const navigate = useNavigate();
+  useEffect(() => { createBusyRef.current = createBusy; }, [createBusy]);
 
   useEffect(() => {
     let active = true;
@@ -85,9 +91,54 @@ export function DashboardView() {
     return (filter === "全部" || filter === status) && code.title.toLowerCase().includes(search.trim().toLowerCase());
   }), [codes, filter, search]);
 
+  function openCreate(trigger: HTMLElement) {
+    if (createBusyRef.current) return;
+    createTriggerRef.current = trigger;
+    setCreateNotice("");
+    setCreating(true);
+  }
+
+  function closeCreate() {
+    if (createBusyRef.current) return;
+    setCreating(false);
+  }
+
+  useEffect(() => {
+    if (!creating) return;
+    createNameRef.current?.focus();
+    const dialog = createDialogRef.current;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (createBusyRef.current) return;
+        event.preventDefault();
+        setCreating(false);
+        return;
+      }
+      if (event.key !== "Tab" || !dialog) return;
+      const items = [...dialog.querySelectorAll<HTMLElement>("button, input, select, textarea")].filter((element) => !element.hasAttribute("disabled"));
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (createTriggerRef.current?.isConnected) createTriggerRef.current.focus();
+    };
+  }, [creating]);
+
   async function createCode() {
+    if (createBusyRef.current) return;
+    setCreateBusy(true);
+    setCreateNotice("");
     try {
-      setCreateNotice("");
       const code = await api.createCode(newName.trim() || "新建活码", initialContent(newType));
       setCodes((current) => [code, ...current]);
       setCreating(false);
@@ -95,6 +146,8 @@ export function DashboardView() {
       await navigate(`/app/codes/${code.id}/qr${requestedType}`);
     } catch (error) {
       setCreateNotice(error instanceof Error ? error.message : "创建活码失败，请稍后重试");
+    } finally {
+      setCreateBusy(false);
     }
   }
 
@@ -103,7 +156,7 @@ export function DashboardView() {
       <div className="dashboard-view__heading">
         <h1>{view === "analytics" ? <>SCAN<br />DATA</> : view === "codes" ? <>MY<br />CODES</> : view === "types" ? <>CONTENT<br />TYPES</> : <>ACTIVE<br />CODES</>}</h1>
         <div className="dashboard-view__actions">
-          <button type="button" onClick={() => setCreating(true)}><Plus />新建活码</button>
+          <button type="button" onClick={(event) => openCreate(event.currentTarget)}><Plus />新建活码</button>
           <Link className="dashboard-decoder-link" to="/decoder"><QrCode />解码二维码</Link>
           <label><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索活码" aria-label="搜索活码" /></label>
           <div className="dashboard-filters" aria-label="活码状态筛选">
@@ -115,7 +168,7 @@ export function DashboardView() {
       {view === "types" ? <article className="dashboard-types paper-panel" aria-label="内容类型">
         <header><h2>选择内容类型</h2><span>创建后可在编辑器中继续上传和完善内容</span></header>
         <div className="dashboard-types__grid">
-          {contentTypeOptions.map(({ type, label, icon: Icon }) => <button key={type} type="button" onClick={() => { setNewType(type); setCreating(true); }}>
+          {contentTypeOptions.map(({ type, label, icon: Icon }) => <button key={type} type="button" onClick={(event) => { setNewType(type); openCreate(event.currentTarget); }}>
             <Icon aria-hidden="true" />
             <strong>{label}</strong>
             <small>创建{label}活码</small>
@@ -141,7 +194,7 @@ export function DashboardView() {
 
       {view !== "types" ? <aside className="recent-submissions paper-panel"><h2>最近编辑</h2>{codes.slice(0, 5).map((code, index) => <Link to={`/app/codes/${code.id}/qr`} key={code.id}><span>{String(index + 1).padStart(2, "0")}</span><strong>{code.title}</strong><small>{new Date(code.updatedAt).toLocaleString("zh-CN")}</small><ArrowRight /></Link>)}</aside> : null}
 
-      {creating ? <div className="dashboard-create paper-panel" role="dialog" aria-modal="true" aria-labelledby="create-code-title"><h2 id="create-code-title">新建活码</h2>{createNotice ? <p role="alert">{createNotice}</p> : null}<label>活码名称<input value={newName} onChange={(event) => setNewName(event.target.value)} autoFocus /></label><label>内容类型<select value={newType} onChange={(event) => setNewType(event.target.value as CodeType)}>{contentTypeOptions.map(({ type, label }) => <option value={type} key={type}>{label}</option>)}</select></label><p className="dashboard-create__hint">图片、视频、音频和文件可在下一步上传，草稿不会写入虚假资源。</p><div><button type="button" onClick={() => setCreating(false)}>取消</button><button type="button" onClick={() => void createCode()}>创建并编辑</button></div></div> : null}
+      {creating ? <><button type="button" className="dashboard-create-backdrop" aria-label="关闭新建活码" disabled={createBusy} onClick={closeCreate} /><div ref={createDialogRef} className="dashboard-create paper-panel" role="dialog" aria-modal="true" aria-labelledby="create-code-title" aria-busy={createBusy}><h2 id="create-code-title">新建活码</h2>{createNotice ? <p role="alert">{createNotice}</p> : null}<label>活码名称<input ref={createNameRef} value={newName} onChange={(event) => setNewName(event.target.value)} /></label><label>内容类型<select value={newType} onChange={(event) => setNewType(event.target.value as CodeType)}>{contentTypeOptions.map(({ type, label }) => <option value={type} key={type}>{label}</option>)}</select></label><p className="dashboard-create__hint">图片、视频、音频和文件可在下一步上传，草稿不会写入虚假资源。</p><div><button type="button" disabled={createBusy} onClick={closeCreate}>取消</button><button type="button" disabled={createBusy} onClick={() => void createCode()}>{createBusy ? "创建中…" : "创建并编辑"}</button></div></div></> : null}
     </section>
   </AppShell>;
 }

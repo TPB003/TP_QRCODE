@@ -36,8 +36,11 @@
 .recent-submissions a strong { display: block; }
 .recent-submissions a small { grid-column: 2; color: var(--muted); }
 .recent-submissions a svg { grid-column: 3; grid-row: 1 / 3; }
+.dashboard-create-backdrop { position: fixed; inset: 0; z-index: 39; border: 0; background: rgba(8, 11, 13, .58); cursor: pointer; }
+.dashboard-create-backdrop:disabled { cursor: wait; }
 .dashboard-create { position: fixed; top: 18%; left: 50%; z-index: 40; display: grid; width: min(90vw, 480px); gap: 16px; padding: 28px; transform: translateX(-50%); }
 .dashboard-create h2 { margin: 0; }.dashboard-create label { display: grid; gap: 8px; font-weight: 700; }.dashboard-create input, .dashboard-create select { min-height: 44px; padding: 0 12px; border: 1px solid var(--hairline); background: transparent; }.dashboard-create > div { display: flex; justify-content: flex-end; gap: 10px; }.dashboard-create button { min-height: 42px; padding: 0 16px; border: 1px solid var(--hairline); background: transparent; cursor: pointer; }.dashboard-create button:last-child { border-color: var(--cobalt); background: var(--cobalt); color: white; }
+.dashboard-create button:disabled { cursor: not-allowed; opacity: .62; }
 @media (max-width: 1200px) { .dashboard-view { grid-template-columns: 1fr; } .dashboard-trend, .recent-submissions { grid-column: 1; } .dashboard-view__heading { align-items: start; flex-direction: column; } }
 @media (max-width: 700px) { .dashboard-view { padding: 28px 16px; } .dashboard-view__heading h1 { font-size: 86px; } .dashboard-table { overflow-x: auto; } .dashboard-table__row { min-width: 760px; } }
 
