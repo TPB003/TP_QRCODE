@@ -79,7 +79,8 @@ describe("active code security boundaries", () => {
     await database.prepare("DELETE FROM rate_limits").run();
     const ip = `198.51.100.${id}-${crypto.randomUUID()}`;
     let limited = false;
-    for (let index = 0; index < 65; index += 1) {
+    // The limit is 60 per 60-second bucket. 121 requests still trips it if the loop crosses one bucket boundary.
+    for (let index = 0; index < 121; index += 1) {
       const response = await SELF.fetch(`http://local/api/public/${active.slug}/events`, { method: "POST", headers: { "Content-Type": "application/json", "CF-Connecting-IP": ip }, body: JSON.stringify({ event: "view", idempotencyKey: `rate-${id}-${index}` }) });
       if (response.status === 429) { limited = true; break; }
       expect(response.status).toBe(200);
